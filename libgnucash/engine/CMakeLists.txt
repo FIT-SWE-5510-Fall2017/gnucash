@@ -206,6 +206,14 @@ SET (engine_SOURCES
   qof-string-cache.cpp
 )
 
+IF (WIN32)
+  ADD_DEFINITIONS (-DOS_WIN32)
+  SET (engine_SOURCES ${engine_SOURCES}
+  qof-win32.cpp
+  ../../borrowed/libc/strptime.c
+  )
+ENDIF (WIN32)
+
 # Add dependency on config.h
 SET_SOURCE_FILES_PROPERTIES (${engine_SOURCES} PROPERTIES OBJECT_DEPENDS ${CONFIG_H})
 
@@ -240,22 +248,16 @@ TARGET_INCLUDE_DIRECTORIES (gncmod-engine
         ${CMAKE_SOURCE_DIR}/borrowed/libc # for strptime.h
 )
 
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-engine PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/gnucash")
+ENDIF()
+
 INSTALL(TARGETS gncmod-engine
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-INSTALL(FILES ${engine_HEADERS} DESTINATION include/gnucash)
-
-SET(qof_test_HEADERS
-kvp-frame.hpp
-qofbook.h
-qofinstance.h
-qofobject.h
-qofsession.h
-)
-
-INSTALL(FILES ${qof_test_HEADERS} DESTINATION libexec/gnucash/libgnucash/engine/test)
+INSTALL(FILES ${engine_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gnucash)
 
 # Scheme
 
@@ -270,40 +272,24 @@ SET (engine_SCHEME_1
     engine-utilities.scm
     gnc-numeric.scm
 )
-IF (WIN32)
-  ADD_DEFINITIONS (-DOS_WIN32)
-  SET (engine_SOURCES ${engine_SOURCES}
-  qof-win32.cpp
-  ../../borrowed/libc/strptime.c
-  )
-ENDIF (WIN32)
 
 SET(BACKEND_DEPENDS gncmod-backend-xml)
 IF (WITH_SQL)
     LIST(APPEND BACKEND_DEPENDS gncmod-backend-dbi)
 ENDIF(WITH_SQL)
 
-SET(GUILE_MODULES      "")
-SET(GUILE_LOAD_DIRS    libgnucash/gnc-module)
-SET(GUILE_LIBRARY_DIRS libgnucash/gnc-module)
 SET(GUILE_DEPENDS      ${BACKEND_DEPENDS} gnc-module gncmod-engine scm-gnc-module)
 
 
 GNC_ADD_SCHEME_TARGETS(scm-engine-0
   "${engine_SCHEME_0}"
   gnucash
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "${GUILE_DEPENDS}"
   FALSE
 )
 
 GNC_ADD_SCHEME_TARGETS(scm-engine-1
   "${engine_SCHEME_1}"
-  ""
-  ""
-  ""
   ""
   "scm-engine-0;${GUILE_DEPENDS}"
   FALSE

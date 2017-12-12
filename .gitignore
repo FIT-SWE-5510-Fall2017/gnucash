@@ -12,6 +12,7 @@
 *.pyo
 *.schemas
 *~
+.*.sw?
 .autotools
 .cproject
 .deps
@@ -24,6 +25,7 @@ INSTALL
 Makefile
 Makefile.in
 TAGS
+tags
 aclocal.m4
 autom4te.cache
 build*/
@@ -69,6 +71,7 @@ po/POTFILES
 po/POTFILES.in
 po/gnucash.pot
 po/stamp-it
+po/glossary/gnc-glossary.pot
 py-compile
 bindings/python/.py-links
 bindings/python/gnucash/
@@ -189,9 +192,6 @@ gnucash/gnucash-launcher
 gnucash/gnucash-make-guids
 gnucash/gnucash-setup-env
 gnucash/gnucash-valgrind
-gnucash/overrides/gnucash-build-env
-gnucash/overrides/gnucash-env
-gnucash/overrides/guile
 gnucash/gnome/gnucash
 gnucash/gnome/gnucash.desktop
 gnucash/gnome/gnucash.desktop.in

@@ -28,7 +28,7 @@
 #include <guid.hpp>
 extern "C"
 {
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 
@@ -101,7 +101,7 @@ static EntryVec parent_col_table
 });
 
 GncSqlAccountBackend::GncSqlAccountBackend() :
-    GncSqlObjectBackend(GNC_SQL_BACKEND_VERSION, GNC_ID_ACCOUNT,
+    GncSqlObjectBackend(TABLE_VERSION, GNC_ID_ACCOUNT,
                         TABLE_NAME, col_table) {}
 
 struct ParentGuid

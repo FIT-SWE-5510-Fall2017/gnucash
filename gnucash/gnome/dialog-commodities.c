@@ -22,7 +22,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -157,7 +157,7 @@ remove_clicked (CommoditiesDialog *cd)
                                 "at least one of your accounts. You may "
                                 "not delete it.");
 
-        gnc_warning_dialog (cd->dialog, "%s", message);
+        gnc_warning_dialog (GTK_WINDOW (cd->dialog), "%s", message);
         g_list_free (accounts);
         return;
     }

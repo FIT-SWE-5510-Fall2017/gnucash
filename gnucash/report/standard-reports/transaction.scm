@@ -34,6 +34,7 @@
 (use-modules (gnucash main)) ;; FIXME: delete after we finish modularizing.
 (use-modules (srfi srfi-1))
 (use-modules (srfi srfi-13))
+(use-modules (ice-9 regex))
 (use-modules (gnucash gnc-module))
 (use-modules (gnucash gettext))
 
@@ -51,14 +52,22 @@
 (define pagename-sorting (N_ "Sorting"))
 (define optname-prime-sortkey (N_ "Primary Key"))
 (define optname-prime-subtotal (N_ "Primary Subtotal"))
+(define optname-prime-sortorder (N_ "Primary Sort Order"))
 (define optname-prime-date-subtotal (N_ "Primary Subtotal for Date Key"))
+(define optname-full-account-name (N_ "Show Full Account Name"))
+(define optname-show-account-code (N_ "Show Account Code"))
 (define optname-sec-sortkey (N_ "Secondary Key"))
 (define optname-sec-subtotal (N_ "Secondary Subtotal"))
+(define optname-sec-sortorder  (N_ "Secondary Sort Order"))
 (define optname-sec-date-subtotal (N_ "Secondary Subtotal for Date Key"))
 (define optname-void-transactions (N_ "Void Transactions"))
 (define optname-table-export (N_ "Table for Exporting"))
 (define optname-common-currency (N_ "Common Currency"))
 (define optname-currency (N_ "Report's currency"))
+(define optname-account-matcher (N_ "Account Matcher"))
+(define optname-account-matcher-regex (N_ "Account Matcher uses regular expressions for extended matching"))
+(define optname-transaction-matcher (N_ "Transaction Matcher"))
+(define optname-transaction-matcher-regex (N_ "Transaction Matcher uses regular expressions for extended matching"))
 (define def:grand-total-style "grand-total")
 (define def:normal-row-style "normal-row")
 (define def:alternate-row-style "alternate-row")
@@ -634,7 +643,24 @@
    (gnc:make-simple-boolean-option
     gnc:pagename-general optname-table-export
     "g" (N_ "Formats the table suitable for cut & paste exporting with extra cells.") #f))  
-  
+
+  (gnc:register-trep-option
+   (gnc:make-string-option
+    gnc:pagename-general optname-transaction-matcher
+    "i1" (N_ "Match only transactions whose substring is matched e.g. '#gift' \
+will find all transactions with #gift in description, notes or memo. It can be left \
+blank, which will disable the matcher.")
+    ""))
+
+  (gnc:register-trep-option
+   (gnc:make-simple-boolean-option
+    gnc:pagename-general optname-transaction-matcher-regex
+    "i2"
+    (N_ "By default the transaction matcher will search substring only. Set this to true to \
+enable full POSIX regular expressions capabilities. '#work|#family' will match both \
+tags within description, notes or memo. ")
+    #f))
+
   ;; Accounts options
   
   ;; account to do report on
@@ -653,11 +679,20 @@
 
   (gnc:register-trep-option
    (gnc:make-string-option
-    gnc:pagename-accounts (N_ "Account Substring")
-    "a5" (N_ "Match only above accounts whose fullname contains substring e.g. ':Travel' will \
-match Expenses:Travel:Holiday and Expenses:Business:Travel. Can be left blank, which will \
-disable the substring filter. This filter is case-sensitive.")
+    gnc:pagename-accounts optname-account-matcher
+    "a5" (N_ "Match only above accounts whose fullname is matched e.g. ':Travel' will match \
+Expenses:Travel:Holiday and Expenses:Business:Travel. It can be left blank, which will disable \
+the matcher.")
     ""))
+
+  (gnc:register-trep-option
+   (gnc:make-simple-boolean-option
+    gnc:pagename-accounts optname-account-matcher-regex
+    "a6"
+    (N_ "By default the account matcher will search substring only. Set this to true to enable full \
+POSIX regular expressions capabilities. 'Car|Flights' will match both Expenses:Car and Expenses:Flights. \
+Use a period (.) to match a single character e.g. '20../.' will match 'Travel 2017/1 London'. ")
+    #f))
 
   (gnc:register-trep-option
    (gnc:make-account-list-option
@@ -839,54 +874,100 @@ disable the substring filter. This filter is case-sensitive.")
           (vector 'weekly (N_ "Weekly") (N_ "Weekly."))
           (vector 'monthly (N_ "Monthly") (N_ "Monthly."))
           (vector 'quarterly (N_ "Quarterly") (N_ "Quarterly."))
-          (vector 'yearly (N_ "Yearly") (N_ "Yearly.")))))
-    
+          (vector 'yearly (N_ "Yearly") (N_ "Yearly."))))
+
+        (prime-sortkey 'account-name)
+        (prime-sortkey-subtotal-true #t)
+        (sec-sortkey 'register-order)
+        (sec-sortkey-subtotal-true #f))
+
+    (define (apply-selectable-by-name-sorting-options)
+      (let* ((prime-sortkey-enabled (not (eq? prime-sortkey 'none)))
+             (prime-sortkey-subtotal-enabled (member prime-sortkey subtotal-enabled))
+             (prime-date-sortingtype-enabled (member prime-sortkey date-sorting-types))
+             (sec-sortkey-enabled (not (eq? sec-sortkey 'none)))
+             (sec-sortkey-subtotal-enabled (member sec-sortkey subtotal-enabled))
+             (sec-date-sortingtype-enabled (member sec-sortkey date-sorting-types)))
+
+        (gnc-option-db-set-option-selectable-by-name
+         options pagename-sorting optname-prime-subtotal
+         prime-sortkey-subtotal-enabled)
+
+        (gnc-option-db-set-option-selectable-by-name
+         options pagename-sorting optname-prime-sortorder
+         prime-sortkey-enabled)
+
+        (gnc-option-db-set-option-selectable-by-name
+         options pagename-sorting optname-sec-subtotal
+         sec-sortkey-subtotal-enabled)
+
+        (gnc-option-db-set-option-selectable-by-name
+         options pagename-sorting optname-sec-sortorder
+         sec-sortkey-enabled)
+
+        (gnc-option-db-set-option-selectable-by-name
+         options pagename-sorting optname-full-account-name
+         (or (and prime-sortkey-subtotal-enabled prime-sortkey-subtotal-true)
+             (and sec-sortkey-subtotal-enabled sec-sortkey-subtotal-true)))
+
+        (gnc-option-db-set-option-selectable-by-name
+         options pagename-sorting optname-show-account-code
+         (or (and prime-sortkey-subtotal-enabled prime-sortkey-subtotal-true)
+             (and sec-sortkey-subtotal-enabled sec-sortkey-subtotal-true)))
+
+        (gnc-option-db-set-option-selectable-by-name
+         options pagename-sorting optname-prime-date-subtotal
+         prime-date-sortingtype-enabled)
+
+        (gnc-option-db-set-option-selectable-by-name
+         options pagename-sorting optname-sec-date-subtotal
+         sec-date-sortingtype-enabled)))
+
     ;; primary sorting criterion
     (gnc:register-trep-option
      (gnc:make-multichoice-callback-option
       pagename-sorting optname-prime-sortkey
       "a" (N_ "Sort by this criterion first.")
-      'account-name
+      prime-sortkey
       key-choice-list #f
       (lambda (x)
-        (gnc-option-db-set-option-selectable-by-name
-         options pagename-sorting optname-prime-subtotal
-         (and (member x subtotal-enabled) #t))
-        (gnc-option-db-set-option-selectable-by-name
-         options pagename-sorting optname-prime-date-subtotal
-         (if (member x date-sorting-types) #t #f)))))
+        (set! prime-sortkey x)
+        (apply-selectable-by-name-sorting-options))))
     
     (gnc:register-trep-option
      (gnc:make-simple-boolean-option
-      pagename-sorting (N_ "Show Full Account Name")
-      "a1" 
+      pagename-sorting optname-full-account-name
+      "j1"
       (N_ "Show the full account name for subtotals and subtitles?")
       #f))
     
     (gnc:register-trep-option
      (gnc:make-simple-boolean-option
-      pagename-sorting (N_ "Show Account Code")
-      "a2" 
+      pagename-sorting optname-show-account-code
+      "j2"
       (N_ "Show the account code for subtotals and subtitles?")
       #f))
     
     (gnc:register-trep-option
-     (gnc:make-simple-boolean-option
+     (gnc:make-complex-boolean-option
       pagename-sorting optname-prime-subtotal
-      "c" 
+      "e5"
       (N_ "Subtotal according to the primary key?")
-      #t))
-    
+      prime-sortkey-subtotal-true #f
+      (lambda (x)
+        (set! prime-sortkey-subtotal-true x)
+        (apply-selectable-by-name-sorting-options))))
+
     (gnc:register-trep-option
      (gnc:make-multichoice-option
       pagename-sorting optname-prime-date-subtotal
-      "d" (N_ "Do a date subtotal.")
+      "e2" (N_ "Do a date subtotal.")
       'monthly
       subtotal-choice-list))
     
     (gnc:register-trep-option
      (gnc:make-multichoice-option
-      pagename-sorting (N_ "Primary Sort Order")
+      pagename-sorting optname-prime-sortorder
       "e" (N_ "Order of primary sorting.")
       'ascend
       ascending-choice-list))
@@ -897,39 +978,65 @@ disable the substring filter. This filter is case-sensitive.")
       pagename-sorting optname-sec-sortkey
       "f"
       (N_ "Sort by this criterion second.")
-      'register-order
+      sec-sortkey
       key-choice-list #f
       (lambda (x)
-        (gnc-option-db-set-option-selectable-by-name
-         options pagename-sorting optname-sec-subtotal
-         (and (member x subtotal-enabled) #t))
-        (gnc-option-db-set-option-selectable-by-name
-         options pagename-sorting optname-sec-date-subtotal
-         (if (member x date-sorting-types) #t #f)))))
-    
+        (set! sec-sortkey x)
+        (apply-selectable-by-name-sorting-options))))
+
     (gnc:register-trep-option
-     (gnc:make-simple-boolean-option
+     (gnc:make-complex-boolean-option
       pagename-sorting optname-sec-subtotal
-      "g" 
+      "i5"
       (N_ "Subtotal according to the secondary key?")
-      #t))
-    
+      sec-sortkey-subtotal-true #f
+      (lambda (x)
+        (set! sec-sortkey-subtotal-true x)
+        (apply-selectable-by-name-sorting-options))))
+
     (gnc:register-trep-option
      (gnc:make-multichoice-option
       pagename-sorting optname-sec-date-subtotal
-      "h" (N_ "Do a date subtotal.")
+      "i2" (N_ "Do a date subtotal.")
       'monthly
       subtotal-choice-list))
     
     (gnc:register-trep-option
      (gnc:make-multichoice-option
-      pagename-sorting (N_ "Secondary Sort Order")
+      pagename-sorting optname-sec-sortorder
       "i" (N_ "Order of Secondary sorting.")
       'ascend
       ascending-choice-list)))
   
   ;; Display options
   
+    (let ((options gnc:*transaction-report-options*)
+          (disp-memo? #t)
+          (disp-accname? #t)
+          (disp-other-accname? #f)
+          (is-single? #t))
+
+      (define (apply-selectable-by-name-display-options)
+        (gnc-option-db-set-option-selectable-by-name
+         options gnc:pagename-display (N_ "Use Full Account Name")
+         disp-accname?)
+
+        (gnc-option-db-set-option-selectable-by-name
+         options gnc:pagename-display (N_ "Other Account Name")
+         is-single?)
+
+        (gnc-option-db-set-option-selectable-by-name
+         options gnc:pagename-display (N_ "Use Full Other Account Name")
+         (and disp-other-accname? is-single?))
+
+        (gnc-option-db-set-option-selectable-by-name
+         options gnc:pagename-display (N_ "Other Account Code")
+         is-single?)
+
+        (gnc-option-db-set-option-selectable-by-name
+         options gnc:pagename-display (N_ "Notes")
+         disp-memo?))
+
   (for-each
    (lambda (l)
      (gnc:register-trep-option
@@ -945,12 +1052,11 @@ disable the substring filter. This filter is case-sensitive.")
         (list (N_ "Num")                      "b"  (N_ "Display the check number?") #t))
     (list (N_ "Description")                  "c"  (N_ "Display the description?") #t)
     (list (N_ "Notes")                        "d2" (N_ "Display the notes if the memo is unavailable?") #t)
-    (list (N_ "Account Name")                 "e"  (N_ "Display the account name?") #f)
+    ;; account name option appears here
     (list (N_ "Use Full Account Name")        "f"  (N_ "Display the full account name?") #t)
     (list (N_ "Account Code")                 "g"  (N_ "Display the account code?") #f)
-    (list (N_ "Other Account Name")           "h1" (N_ "Display the other account name?\
- (if this is a split transaction, this parameter is guessed).") #f)
-    (list (N_ "Use Full Other Account Name")  "i"  (N_ "Display the full account name?") #t)
+    ;; other account name option appears here
+    (list (N_ "Use Full Other Account Name")  "i"  (N_ "Display the full account name?") #f)
     (list (N_ "Other Account Code")           "j"  (N_ "Display the other account code?") #f)
     (list (N_ "Shares")                       "k"  (N_ "Display the number of shares?") #f)
     (list (N_ "Price")                        "l"  (N_ "Display the shares price?") #f)
@@ -971,11 +1077,29 @@ disable the substring filter. This filter is case-sensitive.")
     gnc:pagename-display (N_ "Memo")
     "d"  (N_ "Display the memo?") #t
     #f
-    (lambda (x) (gnc-option-db-set-option-selectable-by-name
-		 gnc:*transaction-report-options*
-		 gnc:pagename-display
-		 (N_ "Notes")
-		 x))))
+    (lambda (x)
+        (set! disp-memo? x)
+        (apply-selectable-by-name-display-options))))
+
+  ;; Ditto for Account Name #t -> Use Full Account Name is selectable
+  (gnc:register-trep-option
+   (gnc:make-complex-boolean-option
+    gnc:pagename-display (N_ "Account Name")
+    "e"  (N_ "Display the account name?") #t
+    #f
+    (lambda (x)
+        (set! disp-accname? x)
+        (apply-selectable-by-name-display-options))))
+
+  ;; Ditto for Other Account Name #t -> Use Full Other Account Name is selectable
+  (gnc:register-trep-option
+   (gnc:make-complex-boolean-option
+    gnc:pagename-display (N_ "Other Account Name")
+    "h5"  (N_ "Display the other account name? (if this is a split transaction, this parameter is guessed).") #f
+    #f
+    (lambda (x)
+        (set! disp-other-accname? x)
+        (apply-selectable-by-name-display-options))))
 
   (gnc:register-trep-option
    (gnc:make-multichoice-callback-option
@@ -990,17 +1114,8 @@ disable the substring filter. This filter is case-sensitive.")
                   (N_ "Display one line per transaction, merging multiple splits where required.")))
     #f
     (lambda (x)
-      (let ((is-single? (eq? x 'single)))
-           (gnc-option-db-set-option-selectable-by-name
-                gnc:*transaction-report-options*
-                gnc:pagename-display (N_ "Other Account Name") is-single?)
-           (gnc-option-db-set-option-selectable-by-name
-                gnc:*transaction-report-options*
-                gnc:pagename-display (N_ "Use Full Other Account Name") is-single?)
-           (gnc-option-db-set-option-selectable-by-name
-                gnc:*transaction-report-options*
-                gnc:pagename-display (N_ "Other Account Code") is-single?)))))
-
+        (set! is-single? (eq? x 'single))
+        (apply-selectable-by-name-display-options))))
 
   (gnc:register-trep-option
    (gnc:make-multichoice-option
@@ -1023,7 +1138,7 @@ disable the substring filter. This filter is case-sensitive.")
              (N_ "Reverse amount display for Income and Expense Accounts."))
      (vector 'credit-accounts (N_ "Credit Accounts")
              (N_ "Reverse amount display for Liability, Payable, Equity, \
-Credit Card, and Income accounts.")))))
+Credit Card, and Income accounts."))))))
 
 
   (gnc:options-set-default-section gnc:*transaction-report-options*
@@ -1444,10 +1559,19 @@ Credit Card, and Income accounts.")))))
 
 
   (gnc:report-starting reportname)
-  (let ((document (gnc:make-html-document))
-	(c_account_1 (opt-val gnc:pagename-accounts "Accounts"))
-	(c_account_substring (opt-val gnc:pagename-accounts "Account Substring"))
-	(c_account_2 (opt-val gnc:pagename-accounts "Filter By..."))
+  (let* ((document (gnc:make-html-document))
+        (c_account_0 (opt-val gnc:pagename-accounts "Accounts"))
+        (account-matcher (opt-val gnc:pagename-accounts optname-account-matcher))
+        (account-matcher-regexp (if (opt-val gnc:pagename-accounts optname-account-matcher-regex)
+                                    (make-regexp account-matcher)
+                                    #f))
+        (c_account_1 (filter
+                      (lambda (acc)
+                        (if account-matcher-regexp
+                            (regexp-exec account-matcher-regexp (gnc-account-get-full-name acc))
+                            (string-contains (gnc-account-get-full-name acc) account-matcher)))
+                     c_account_0))
+        (c_account_2 (opt-val gnc:pagename-accounts "Filter By..."))
 	(filter-mode (opt-val gnc:pagename-accounts "Filter Type"))
         (begindate (gnc:timepair-start-day-time
                     (gnc:date-option-absolute-time
@@ -1455,6 +1579,10 @@ Credit Card, and Income accounts.")))))
         (enddate (gnc:timepair-end-day-time
                   (gnc:date-option-absolute-time
                    (opt-val gnc:pagename-general "End Date"))))
+        (transaction-matcher (opt-val gnc:pagename-general optname-transaction-matcher))
+        (transaction-matcher-regexp (if (opt-val gnc:pagename-general optname-transaction-matcher-regex)
+                                        (make-regexp transaction-matcher)
+                                        #f))
         (report-title (opt-val 
                        gnc:pagename-general
                        gnc:optname-reportname))
@@ -1462,18 +1590,13 @@ Credit Card, and Income accounts.")))))
         (primary-order (opt-val pagename-sorting "Primary Sort Order"))
         (secondary-key (opt-val pagename-sorting optname-sec-sortkey))
         (secondary-order (opt-val pagename-sorting "Secondary Sort Order"))
-	(void-status (opt-val gnc:pagename-accounts optname-void-transactions))
+        (void-status (opt-val gnc:pagename-accounts optname-void-transactions))
         (splits '())
         (query (qof-query-create-for-splits)))
 
     ;;(gnc:warn "accts in trep-renderer:" c_account_1)
     ;;(gnc:warn "Report Account names:" (get-other-account-names c_account_1))
 
-    (set! c_account_1
-          (filter (lambda (acc)
-                    (string-contains (gnc-account-get-full-name acc) c_account_substring))
-                  c_account_1))
-    
     (if (not (or (null? c_account_1) (and-map not c_account_1)))
         (begin
           (qof-query-set-book query (gnc-get-current-book))
@@ -1504,28 +1627,23 @@ Credit Card, and Income accounts.")))))
 
           ;;(gnc:warn "Splits in trep-renderer:" splits)
 
-	  ;;(gnc:warn "Filter account names:" (get-other-account-names c_account_2))
+          ; Combined Filter:
+          ; - include/exclude splits to/from selected accounts
+          ; - substring/regex matcher for Transaction Description/Notes/Memo
+          (set! splits (filter
+                        (lambda (split)
+                          (let* ((trans (xaccSplitGetParent split))
+                                 (match? (lambda (str)
+                                           (if transaction-matcher-regexp
+                                               (regexp-exec transaction-matcher-regexp str)
+                                               (string-contains str transaction-matcher)))))
+                            (and (if (eq? filter-mode 'include) (is-filter-member split c_account_2) #t)
+                                 (if (eq? filter-mode 'exclude) (not (is-filter-member split c_account_2)) #t)
+                                 (or (match? (xaccTransGetDescription trans))
+                                     (match? (xaccTransGetNotes trans))
+                                     (match? (xaccSplitGetMemo split))))))
+                        splits))
 
-	  ;;This should probably a cond or a case to allow for different filter types.
-	  ;;(gnc:warn "Filter Mode: " filter-mode)
-	  (if (eq? filter-mode 'include)
-	      (begin
-		;;(gnc:warn "Including Filter Accounts")
-		(set! splits (filter (lambda (split) 
-				       (is-filter-member split c_account_2))
-				     splits))
-		)
-	      )
-
-	  (if (eq? filter-mode 'exclude)
-	      (begin
-		;;(gnc:warn "Excluding Filter Accounts")
-		(set! splits (filter (lambda (split) 
-				       (not (is-filter-member split c_account_2)))
-				     splits))
-		)
-	      )
-	
           (if (not (null? splits))
               (let ((table 
                      (make-split-table 
@@ -1573,12 +1691,22 @@ match the time interval and account selection specified \
 in the Options panel.")))
                 (gnc:html-document-add-object! document p))))
 
-        ;; error condition: no accounts specified
-        
-        (gnc:html-document-add-object!
-         document 
-	 (gnc:html-make-no-account-warning 
-	  report-title (gnc:report-id report-obj))))
+        (if (null? c_account_0)
+            
+            ;; error condition: no accounts specified
+            (gnc:html-document-add-object!
+             document 
+             (gnc:html-make-no-account-warning 
+              report-title (gnc:report-id report-obj)))
+
+            ;; error condition: accounts were specified but none matcher string/regex
+            (gnc:html-document-add-object!
+             document
+             (gnc:make-html-text
+              (gnc:html-markup-h2
+               (N_ "No accounts were matched"))
+              (gnc:html-markup-p
+               (N_ "The account matcher specified in the report options did not match any accounts."))))))
 
     (gnc:report-finished)
     document))

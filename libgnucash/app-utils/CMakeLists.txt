@@ -99,16 +99,20 @@ TARGET_INCLUDE_DIRECTORIES (gncmod-app-utils
 )
 TARGET_COMPILE_DEFINITIONS (gncmod-app-utils PRIVATE -DG_LOG_DOMAIN=\"gnc.app-utils\")
 
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-app-utils PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
+
 INSTALL(TARGETS gncmod-app-utils
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 IF (WITH_PYTHON)
-  ADD_LIBRARY (gncmod-app-utils-python ${app_utils_ALL_SOURCES} ${SWIG_APP_UTILS_PYTHON_C})
+  ADD_LIBRARY (gncmod-app-utils-python ${SWIG_APP_UTILS_PYTHON_C})
 
-  TARGET_LINK_LIBRARIES(gncmod-app-utils-python ${app_utils_ALL_LIBRARIES} ${PYTHON_LIBRARIES})
+  TARGET_LINK_LIBRARIES(gncmod-app-utils-python gncmod-app-utils ${app_utils_ALL_LIBRARIES} ${PYTHON_LIBRARIES})
 
   TARGET_INCLUDE_DIRECTORIES (gncmod-app-utils-python
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
@@ -116,16 +120,20 @@ IF (WITH_PYTHON)
   )
   TARGET_COMPILE_DEFINITIONS (gncmod-app-utils-python PRIVATE -DG_LOG_DOMAIN=\"gnc.app-utils\")
 
+  IF (APPLE)
+    SET_TARGET_PROPERTIES (gncmod-app-utils-python PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+  ENDIF()
+
   INSTALL(TARGETS gncmod-app-utils-python
-    LIBRARY DESTINATION lib/gnucash
-    ARCHIVE DESTINATION lib/gnucash
-    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   )
 ENDIF()
 
 
 
-INSTALL(FILES ${app_utils_HEADERS} DESTINATION include/gnucash)
+INSTALL(FILES ${app_utils_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gnucash)
 
 IF (WITH_OFX)
   FILE(READ ${CMAKE_SOURCE_DIR}/gnucash/import-export/ofx/migratable-prefs-ofx.xml MIGRATABLE_PREFS_OFX)
@@ -142,8 +150,8 @@ CONFIGURE_FILE(migratable-prefs.xml.in ${MIGRATABLE_PREFS_XML})
 # This configure_file is to generate the file for autotools
 CONFIGURE_FILE(migratable-prefs.xml.in migratable-prefs.xml)
 
-INSTALL(FILES ${MIGRATABLE_PREFS_XML} DESTINATION share/gnucash)
-INSTALL(FILES make-prefs-migration-script.xsl DESTINATION share/gnucash)
+INSTALL(FILES ${MIGRATABLE_PREFS_XML} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash)
+INSTALL(FILES make-prefs-migration-script.xsl DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash)
 
 # And now handle scheme files
 
@@ -167,17 +175,11 @@ SET(app_utils_SCHEME_3
     business-prefs.scm
 )
 
-SET(GUILE_MODULES      libgnucash/engine)
-SET(GUILE_LOAD_DIRS    libgnucash/app-utils libgnucash/core-utils libgnucash/engine libgnucash/gnc-module libgnucash/scm)
-SET(GUILE_LIBRARY_DIRS libgnucash/app-utils libgnucash/core-utils libgnucash/engine libgnucash/gnc-module)
 SET(GUILE_DEPENDS      gncmod-app-utils scm-core-utils scm-engine scm-scm)
 
 GNC_ADD_SCHEME_TARGETS(scm-gettext
   gettext.scm
   gnucash
-  libgnucash/app-utils
-  ""
-  ""
   gncmod-app-utils
   FALSE
 )
@@ -185,9 +187,6 @@ GNC_ADD_SCHEME_TARGETS(scm-gettext
 GNC_ADD_SCHEME_TARGETS(scm-app-utils-1
   "${app_utils_SCHEME_1}"
   ""
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "scm-gettext;${GUILE_DEPENDS}"
   FALSE
 )
@@ -195,9 +194,6 @@ GNC_ADD_SCHEME_TARGETS(scm-app-utils-1
 GNC_ADD_SCHEME_TARGETS(scm-app-utils-2
   "${app_utils_SCHEME_2}"
   "gnucash"
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   scm-app-utils-1
   FALSE
 )
@@ -205,9 +201,6 @@ GNC_ADD_SCHEME_TARGETS(scm-app-utils-2
 GNC_ADD_SCHEME_TARGETS(scm-app-utils-3
   "${app_utils_SCHEME_3}"
   ""
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   scm-app-utils-2
   FALSE
 )

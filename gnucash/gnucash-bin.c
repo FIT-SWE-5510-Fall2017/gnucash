@@ -20,7 +20,7 @@
  * 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652
  * Boston, MA  02110-1301,  USA       gnu@gnu.org
  */
-#include "config.h"
+#include <config.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -68,12 +68,12 @@ static QofLogModule log_module = GNC_MOD_GUI;
 #  include <Foundation/Foundation.h>
 #endif
 
-/* GNUCASH_SCM is defined whenever we're building from an svn/svk/git/bzr tree */
-#ifdef GNUCASH_SCM
+/* GNC_VCS is defined whenever we're building from an svn/svk/git/bzr tree */
+#ifdef GNC_VCS
 static int is_development_version = TRUE;
 #else
 static int is_development_version = FALSE;
-#define GNUCASH_SCM ""
+#define GNC_VCS ""
 #endif
 
 /* Command-line option variables */
@@ -425,9 +425,8 @@ load_user_config(void)
 static void
 gnc_parse_command_line(int *argc, char ***argv)
 {
-
     GError *error = NULL;
-    GOptionContext *context = g_option_context_new (_("- GnuCash personal and small business finance management"));
+    GOptionContext *context = g_option_context_new (_("- GnuCash, accounting for personal and small business finance"));
 
     g_option_context_add_main_entries (context, options, GETTEXT_PACKAGE);
     g_option_context_add_group (context, gtk_get_option_group(FALSE));
@@ -439,35 +438,29 @@ gnc_parse_command_line(int *argc, char ***argv)
         exit (1);
     }
     g_option_context_free (context);
-
     if (gnucash_show_version)
     {
-        gchar *fixed_message;
+        gchar *vcs;
 
         if (is_development_version)
-        {
-            fixed_message = g_strdup_printf(_("GnuCash %s development version"), VERSION);
-
-            /* Translators: 1st %s is a fixed message, which is translated independently;
-                            2nd %s is the scm type (svn/svk/git/bzr);
-                            3rd %s is the scm revision number;
-                            4th %s is the build date */
-            g_print ( _("%s\nThis copy was built from %s rev %s on %s."),
-                      fixed_message, GNUCASH_SCM, GNUCASH_SCM_REV,
-                      GNUCASH_BUILD_DATE );
-        }
+            g_print (_("GnuCash %s development version"), VERSION);
         else
-        {
-            fixed_message = g_strdup_printf(_("GnuCash %s"), VERSION);
+            g_print (_("GnuCash %s"), VERSION);
 
-            /* Translators: 1st %s is a fixed message, which is translated independently;
-                            2nd %s is the scm (svn/svk/git/bzr) revision number;
-                            3rd %s is the build date */
-            g_print ( _("%s\nThis copy was built from rev %s on %s."),
-                      fixed_message, GNUCASH_SCM_REV, GNUCASH_BUILD_DATE );
-        }
-        g_print("\n");
-        g_free (fixed_message);
+#ifdef GNC_VCS
+        vcs = GNC_VCS " ";
+#else
+        vcs = "";
+#endif
+
+        /* Allow builder to override the build id (eg distributions may want to
+         * print an package source version number (rpm, dpkg,...) instead of our git ref */
+        if (g_strcmp0("", GNUCASH_BUILD_ID) != 0)
+            g_print ("\n%s: %s\n",
+                     _("Build ID"), GNUCASH_BUILD_ID);
+        else
+            g_print ("\n%s: %s%s (%s)\n",
+                     _("Build ID"), vcs, GNC_VCS_REV, GNC_VCS_REV_DATE);
         exit(0);
     }
 

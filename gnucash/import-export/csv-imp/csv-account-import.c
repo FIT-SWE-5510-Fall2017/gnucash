@@ -24,7 +24,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 #include <glib/gi18n.h>
@@ -93,7 +93,7 @@ csv_import_read_file (const gchar *filename, const gchar *parser_regexp,
 
     if (!g_file_get_contents (filename, &locale_cont, NULL, NULL))
     {
-        //gnc_error_dialog( 0, _("File %s cannot be opened."), filename );
+        //gnc_error_dialog (NULL, _("File %s cannot be opened."), filename );
         return RESULT_OPEN_FAILED;
     }
 

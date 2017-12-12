@@ -28,7 +28,7 @@
  *     Dave Peticolas <dave@krondo.com>
  */
 
-#include "config.h"
+#include <config.h>
 #include <glib.h>
 #include <glib/gprintf.h>
 #include <gdk/gdkkeysyms.h>
@@ -156,6 +156,7 @@ gnucash_register_refresh_from_prefs (GnucashRegister *reg)
 
     sheet = GNUCASH_SHEET(reg->sheet);
     gnucash_sheet_refresh_from_prefs(sheet);
+    gnc_header_request_redraw (GNC_HEADER(sheet->header_item));
 }
 
 
@@ -263,6 +264,20 @@ gnucash_register_goto_next_matching_row (GnucashRegister *reg,
     gnucash_sheet_goto_virt_loc (sheet, virt_loc);
 }
 
+static gboolean
+gnucash_register_sheet_resize (GnucashRegister *reg)
+{
+    // Sometimes the space left by the horzontal scrollbar does
+    // not get filled on load, this makes sure it does
+    if (!reg->hscrollbar_visible)
+        gtk_widget_queue_resize (GTK_WIDGET (reg->sheet));
+
+    // Make sure the sheet is the focus
+    if (!gtk_widget_has_focus(GTK_WIDGET (reg->sheet)))
+        gtk_widget_grab_focus (GTK_WIDGET (reg->sheet));
+
+    return FALSE;
+}
 
 static void
 gnucash_register_update_hadjustment (GtkAdjustment *adj,
@@ -286,6 +301,10 @@ gnucash_register_update_hadjustment (GtkAdjustment *adj,
         {
             gtk_widget_hide(reg->hscrollbar);
             reg->hscrollbar_visible = FALSE;
+            // When sheet first loaded and the scrollbar is hidden, the space left
+            // is not always automaticly taken up by the sheet so queue a resize
+            // when all is idle
+            g_idle_add ((GSourceFunc) gnucash_register_sheet_resize, reg);
         }
     }
 }
@@ -368,13 +387,13 @@ gnucash_register_get_type (void)
         static const GTypeInfo gnucash_register_info =
         {
             sizeof (GnucashRegisterClass),
-            NULL,		/* base_init */
-            NULL,		/* base_finalize */
+            NULL,       /* base_init */
+            NULL,       /* base_finalize */
             (GClassInitFunc) gnucash_register_class_init,
-            NULL,		/* class_finalize */
-            NULL,		/* class_data */
+            NULL,       /* class_finalize */
+            NULL,       /* class_data */
             sizeof (GnucashRegister),
-            0,		/* n_preallocs */
+            0,      /* n_preallocs */
             (GInstanceInitFunc) gnucash_register_init,
         };
 
@@ -472,6 +491,31 @@ gnucash_register_configure (GnucashSheet *sheet, gchar * state_section)
     LEAVE(" ");
 }
 
+static gboolean
+gnucash_register_enter_scrollbar (GtkWidget *widget,
+                                  GdkEvent *event, gpointer user_data)
+{
+    GnucashRegister *reg = user_data;
+    GnucashSheet *sheet = GNUCASH_SHEET(reg->sheet);
+    GtkWidget *vscrollbar = sheet->vscrollbar;
+    GtkWidget *hscrollbar = sheet->hscrollbar;
+
+    // There seems to be a problem with the scrollbar slider not being
+    // updated as the mouse moves possibly related to the following bug
+    // https://bugzilla.gnome.org/show_bug.cgi?id=765410
+    // If they are hidden and shown it seems to fix it.
+
+    gtk_widget_hide (GTK_WIDGET(vscrollbar));
+    gtk_widget_show (GTK_WIDGET(vscrollbar));
+
+    if (gtk_widget_is_visible (hscrollbar))
+    {
+        gtk_widget_hide (GTK_WIDGET(hscrollbar));
+        gtk_widget_show (GTK_WIDGET(hscrollbar));
+    }
+    return FALSE;
+}
+
 
 static GtkWidget *
 gnucash_register_create_widget (Table *table)
@@ -516,6 +560,10 @@ gnucash_register_create_widget (Table *table)
     gtk_widget_set_valign (GTK_WIDGET(scrollbar), GTK_ALIGN_FILL);
     g_object_set (GTK_WIDGET(scrollbar), "margin", 0, NULL);
     gtk_widget_show (scrollbar);
+    GNUCASH_SHEET(sheet)->vscrollbar = scrollbar;
+
+    g_signal_connect(G_OBJECT(scrollbar), "enter-notify-event",
+                      G_CALLBACK(gnucash_register_enter_scrollbar), reg);
 
     scrollbar = gtk_scrollbar_new (GTK_ORIENTATION_HORIZONTAL, GNUCASH_SHEET(sheet)->hadj);
     gtk_grid_attach (GTK_GRID(widget), GTK_WIDGET(scrollbar), 0, 2, 1, 1);
@@ -527,30 +575,10 @@ gnucash_register_create_widget (Table *table)
     reg->hscrollbar = scrollbar;
     gtk_widget_show (reg->hscrollbar);
     reg->hscrollbar_visible = TRUE;
+    GNUCASH_SHEET(sheet)->hscrollbar = scrollbar;
 
-    /* The gtkrc color helper widgets need to be part of a window
-     * hierarchy so they can be realized. Stick them in a box
-     * underneath the register, but don't show the box to the
-     * user. */
-    box = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_box_set_homogeneous (GTK_BOX (box), FALSE);
-
-    gtk_widget_set_no_show_all(GTK_WIDGET(box), TRUE);
-    gtk_box_pack_start(GTK_BOX(box),
-                                GNUCASH_SHEET(sheet)->header_color, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(box),
-                                GNUCASH_SHEET(sheet)->primary_color, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(box),
-                                GNUCASH_SHEET(sheet)->secondary_color, TRUE, TRUE, 0);
-    gtk_box_pack_start(GTK_BOX(box),
-                                GNUCASH_SHEET(sheet)->split_color, TRUE, TRUE, 0);
-
-    gtk_grid_attach (GTK_GRID(widget), GTK_WIDGET(box), 0, 3, 1, 1);
-    gtk_widget_set_hexpand (GTK_WIDGET(box), TRUE);
-    gtk_widget_set_halign (GTK_WIDGET(box), GTK_ALIGN_FILL);
-    gtk_widget_set_vexpand (GTK_WIDGET(box), TRUE);
-    gtk_widget_set_valign (GTK_WIDGET(box), GTK_ALIGN_FILL);
-    g_object_set (GTK_WIDGET(box), "margin", 0, NULL);
+    g_signal_connect(G_OBJECT(scrollbar), "enter-notify-event",
+                      G_CALLBACK(gnucash_register_enter_scrollbar), reg);
 
     g_signal_connect (GNUCASH_SHEET(sheet)->hadj, "changed",
                       G_CALLBACK (gnucash_register_update_hadjustment), reg);
@@ -563,11 +591,7 @@ GtkWidget *
 gnucash_register_new (Table *table, gchar *state_section)
 {
     GnucashRegister *reg;
-//    GtkWidget *header;
     GtkWidget *widget;
-//    GtkWidget *sheet;
-//    GtkWidget *scrollbar;
-//    GtkWidget *box;
 
     widget = gnucash_register_create_widget(table);
     reg = GNUCASH_REGISTER(widget);

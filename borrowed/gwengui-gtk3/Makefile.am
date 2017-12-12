@@ -8,6 +8,7 @@ libgwengui_gtk3_la_LIBADD=$(GTK_LIBS) $(GWEN_LIBS)
 libgwengui_gtk3_la_LDFLAGS = -no-undefined
 
 noinst_HEADERS=\
+  gtk3_gui.h \
   gtk3_gui_p.h \
   gtk3_gui_dialog_l.h \
   gtk3_gui_dialog_p.h
@@ -23,6 +24,7 @@ EXTRA_DIST=\
   w_dialog.c \
   w_gridlayout.c \
   w_groupbox.c \
+  w_image.c \
   w_hlayout.c \
   w_hline.c \
   w_hspacer.c \

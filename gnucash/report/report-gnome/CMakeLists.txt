@@ -36,12 +36,16 @@ TARGET_COMPILE_DEFINITIONS (gncmod-report-gnome PRIVATE -DG_LOG_DOMAIN=\"gnc.rep
 
 TARGET_INCLUDE_DIRECTORIES(gncmod-report-gnome PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-INSTALL(TARGETS gncmod-report-gnome
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-report-gnome PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
 
-INSTALL(FILES ${report_gnome_HEADERS} DESTINATION include/gnucash)
+INSTALL(TARGETS gncmod-report-gnome
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+INSTALL(FILES ${report_gnome_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gnucash)
 
 # Scheme
 
@@ -50,28 +54,22 @@ SET(report_gnome_SCHEME
 )
 
 SET(GUILE_OUTPUT_DIR   gnucash/report)
-SET(GUILE_MODULES      libgnucash/app-utils libgnucash/scm libgnucash/engine libgnucash/gnc-module gnucash/gnome-utils gnucash/reports/report-system gnucash/report/utility-reports)
-SET(GUILE_LOAD_DIRS    libgnucash/app-utils libgnucash/gnc-module libgnucash/engine libgnucash/scm libgnucash/core-utils gnucash/gnome-utils)
-SET(GUILE_LIBRARY_DIRS libgnucash/app-utils libgnucash/core-utils libgnucash/engine libgnucash/gnc-module gnucash/gnome-utils gnucash/report-gnome)
 SET(GUILE_DEPENDS      gncmod-report-gnome gncmod-engine scm-app-utils scm-gnome-utils scm-core-utils scm-gnc-module scm-scm scm-standard-reports scm-business-reports scm-utility-reports)
 
 GNC_ADD_SCHEME_TARGETS(scm-report-gnome
     "${report_gnome_SCHEME}"
     ${GUILE_OUTPUT_DIR}
-    "${GUILE_MODULES}"
-    "${GUILE_LOAD_DIRS}"
-    "${GUILE_LIBRARY_DIRS}"
     "${GUILE_DEPENDS}"
     FALSE
 )
 
 SET(report_gnome_GLADE dialog-custom-report.glade dialog-report.glade)
 
-INSTALL(FILES ${report_gnome_GLADE} DESTINATION share/gnucash/gtkbuilder)
+INSTALL(FILES ${report_gnome_GLADE} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/gtkbuilder)
 
 SET(report_gnome_UI gnc-plugin-page-report-ui.xml)
 
-INSTALL(FILES ${report_gnome_UI} DESTINATION share/gnucash/ui)
+INSTALL(FILES ${report_gnome_UI} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/ui)
 
 FILE(COPY ${report_gnome_UI} DESTINATION ${DATADIR_BUILD}/gnucash/ui)
 FILE(COPY ${report_gnome_GLADE} DESTINATION ${DATADIR_BUILD}/gnucash/gtkbuilder)

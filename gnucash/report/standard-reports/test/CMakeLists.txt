@@ -1,24 +1,32 @@
-GNC_ADD_SCHEME_TEST(test-cash-flow test-cash-flow.scm)
-GNC_ADD_SCHEME_TEST(test-standard-category-report test-standard-category-report.scm)
-GNC_ADD_SCHEME_TEST(test-standard-net-barchart test-standard-net-barchart.scm)
-GNC_ADD_SCHEME_TEST(test-standard-net-linechart test-standard-net-linechart.scm)
-
 SET(scm_test_standard_reports_SOURCES
+  test-cash-flow.scm
+  test-cashflow-barchart.scm
+  test-standard-category-report.scm
+  test-standard-net-barchart.scm
+  test-standard-net-linechart.scm
+)
+
+SET(scm_test_report_SUPPORT
   test-generic-category-report.scm
   test-generic-net-barchart.scm
   test-generic-net-linechart.scm
-)
+  )
 
+
+GNC_ADD_SCHEME_TESTS("${scm_test_standard_reports_SOURCES}")
+
+GNC_ADD_SCHEME_TARGETS(scm-test-standard-support
+  "${scm_test_report_SUPPORT}"
+  "gnucash/report/standard-reports/test"
+  "scm-gnc-module;scm-test-report-system;scm-standard-reports;scm-report-stylesheets-2"
+  FALSE
+  )
 GNC_ADD_SCHEME_TARGETS(scm-test-standard-reports
   "${scm_test_standard_reports_SOURCES}"
   gnucash/report/standard-reports/test
-  ""
-  ""
-  ""
-  "scm-gnc-module;scm-test-report-system"
+  scm-test-standard-support
   FALSE
 )
 
-SET_DIST_LIST(test_standard_reports_DIST CMakeLists.txt Makefile.am ${scm_test_standard_reports_SOURCES}
-        test-cash-flow.scm test-standard-category-report.scm test-standard-net-barchart.scm
-        test-standard-net-linechart.scm)
+SET_DIST_LIST(test_standard_reports_DIST CMakeLists.txt Makefile.am
+  ${scm_test_standard_reports_SOURCES} ${scm_test_report_SUPPORT})

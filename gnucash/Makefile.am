@@ -1,9 +1,6 @@
 if WITH_PYTHON
    PYTHON_DIR = python
 endif
-if !PLATFORM_WIN32
-  OVERRIDES_DIR = overrides
-endif
 # Order is important here.
 SUBDIRS = \
   ${PYTHON_DIR} \
@@ -14,9 +11,7 @@ SUBDIRS = \
   register \
   gnome \
   import-export \
-  . \
-  ${OVERRIDES_DIR} \
-  test
+  .
 
 AM_CPPFLAGS = -I${top_builddir} ${GLIB_CFLAGS} ${GNOME_CFLAGS} ${GTK_CFLAGS} \
   -DPKGSYSCONFDIR=\"${GNC_CONFIGDIR}\" \
@@ -55,9 +50,14 @@ PLATFORM_FILES = gnucash-valgrind
 
 endif !PLATFORM_WIN32
 
+# gresource for css
+gresource_files = $(shell $(GLIB_COMPILE_RESOURCES) --sourcedir=$(srcdir) --generate-dependencies $(srcdir)/gnucash-gresources.xml)
+gnucash-gresources.c: gnucash-gresources.xml $(gresource_files)
+	$(AM_V_GEN) $(GLIB_COMPILE_RESOURCES) --target=$@ --sourcedir=$(srcdir) --generate-source $<
+
 BIN_NAME = gnucash
 bin_PROGRAMS = ${BIN_NAME}
-gnucash_SOURCES = gnucash-bin.c ${GNUCASH_RESOURCE_FILE}
+gnucash_SOURCES = gnucash-bin.c gnucash-gresources.c ${GNUCASH_RESOURCE_FILE}
 gnucash_LDADD = \
   ${top_builddir}/gnucash/register/ledger-core/libgncmod-ledger-core.la \
   ${top_builddir}/gnucash/report/report-gnome/libgncmod-report-gnome.la \
@@ -117,45 +117,13 @@ endif
 
 CLEANFILES = $(BUILT_SOURCES) ${config_DATA} ${PLATFORM_FILES}
 
-if !PLATFORM_WIN32
-# The gnucash scripts don't make sense on Windows, so will only be
-# generated and included on the other platforms.
-# We handle gnucash scripts in a somewhat unexpected way, but we do
-# this so that a user who doesn't necessarily have the right
-# directories in their path can still invoke these commands via their
-# full path, say /some/dir/not/in/path/gnucash and still have the
-# right thing happen (i.e. they'll still get the right guile, and the
-# right scripts if they sub-exec anything from their scripts).  If you
-# want to add another gnucash script, please add the name here (which
-# will cause the bindir wrapper to be created, and then put the actual
-# code in a script of the same name in ./overrides.  Oh, and don't
-# forget to add your script to configure.in's "Adjustments" section if
-# you need to.
-#
-# For testing and other reasons, overrides/* scripts should not modify
-# the path to re-insert the overrides dir.  This should only be done
-# by these top-level "common" scripts.
-gnc_common_scripts = gnucash-env gnucash-make-guids
-
-bin_SCRIPTS = \
-    ${gnc_common_scripts} \
-	${PLATFORM_FILES}
-
-# if you change gncoverridedir, make sure you change ./overrides/Makefile.am too.
-gncoverridesdir = ${GNC_LIBEXECDIR}/overrides
-
-## Gnucash scripts -- real code is in overrides, these just get you there.
-${gnc_common_scripts}: generate-gnc-script ${top_builddir}/config.status
-	${srcdir}/generate-gnc-script $@ "${gncoverridesdir}"
-
-CLEANFILES += ${gnc_common_scripts}
-
-endif
 
 EXTRA_DIST = \
 	generate-gnc-script \
 	gnucash-valgrind.in \
 	environment.in \
+	gnucash-gresources.xml \
+	${gresource_files} \
 	CMakeLists.txt
 
 AM_CPPFLAGS += -DG_LOG_DOMAIN=\"gnc.bin\"

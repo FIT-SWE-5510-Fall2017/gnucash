@@ -37,7 +37,7 @@
     @author Copyright (C) 2005 David Hampton <hampton@employees.org>
 */
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -413,7 +413,7 @@ gnc_plugin_page_report_create_widget( GncPluginPage *page )
     report = GNC_PLUGIN_PAGE_REPORT(page);
     priv = GNC_PLUGIN_PAGE_REPORT_GET_PRIVATE(report);
 
-    topLvl = GTK_WINDOW(gnc_ui_get_toplevel());
+    topLvl = gnc_ui_get_main_window (NULL);
 //        priv->html = gnc_html_new( topLvl );
     priv->html = gnc_html_factory_create_html();
     gnc_html_set_parent( priv->html, topLvl );
@@ -1663,12 +1663,12 @@ static void
 gnc_plugin_page_report_options_cb( GtkAction *action, GncPluginPageReport *report )
 {
     GncPluginPageReportPrivate *priv;
-
+    GtkWindow *parent = GTK_WINDOW (gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (report)));
     priv = GNC_PLUGIN_PAGE_REPORT_GET_PRIVATE(report);
     if (priv->cur_report == SCM_BOOL_F)
         return;
 
-    if (gnc_report_edit_options (priv->cur_report))
+    if (gnc_report_edit_options (priv->cur_report, parent))
         gnc_plugin_page_report_add_edited_report(priv, priv->cur_report);
 }
 

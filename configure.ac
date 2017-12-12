@@ -20,7 +20,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 # Autoconf initialization
 AC_PREREQ(2.60)
-AC_INIT([GnuCash], [2.6.99], [gnucash-devel@gnucash.org])
+AC_INIT([GnuCash], [2.7.2], [https://bugzilla.gnome.org/page.cgi?id=browse.html&product=GnuCash], , [http://www.gnucash.org/])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_SRCDIR(libgnucash/engine/Transaction.h)
 AC_CONFIG_MACRO_DIR([macros])
@@ -95,6 +95,14 @@ AC_DEFINE_UNQUOTED(GNUCASH_RESAVE_VERSION, $GNUCASH_RESAVE_VERSION,
     [GnuCash earliest compatible databaseversion number])
 AC_DEFINE_UNQUOTED(GNUCASH_LATEST_STABLE_SERIES, "$GNUCASH_LATEST_STABLE_SERIES",
     [Most recent stable GnuCash series])
+
+AC_ARG_VAR([GNUCASH_BUILD_ID],[Overrides the GnuCash build identification (Build ID) which defaults
+to a description of the vcs commit from which gnucash is built. Distributions may want to insert a package
+management based version number instead])
+AC_DEFINE_UNQUOTED(GNUCASH_BUILD_ID, "$GNUCASH_BUILD_ID",
+                   [GnuCash build identification, which defaults
+                   to a description of the vcs commit from which gnucash is built. Distributions may want
+                   to insert a package management based version string instead.])
 
 dnl Set of available languages:
 dnl managed at the Translation Project:
@@ -325,6 +333,9 @@ AC_CHECK_HEADERS(dirent.h dlfcn.h dl.h utmp.h locale.h mcheck.h unistd.h wctype.
 
 GLIB_GSETTINGS
 
+GLIB_COMPILE_RESOURCES=`$PKG_CONFIG --variable glib_compile_resources gio-2.0`
+AC_SUBST(GLIB_COMPILE_RESOURCES)
+
 # I'm sure we (used to?) require this in various places, so don't remove
 # this test unless you've done sufficient code review/testing.
 AC_MSG_CHECKING(if unsigned long is at least as big as guint32)
@@ -402,6 +413,7 @@ update to latest  darwin])
       if test "x$_gtk_mac" = xyes; then
         GTK_MAC_LIBS="${GTK_MAC_LIBS} -lobjc -framework Cocoa"
         GTK_MAC_CFLAGS="${GTK_MAC_CFLAGS} -xobjective-c"
+        GTK_MAC_CXXFLAGS="${GTK_MAC_CFLAGS} -xobjective-c++"
  	if test "`echo ${GCC_VERSION} | cut -d. -f1`" -eq 4; then
 	   if test "`echo ${GCC_VERSION} | cut -d. -f2`" -ge 8; then
       	   # This is gcc >= 4.8.x
@@ -412,6 +424,7 @@ update to latest  darwin])
       AC_MSG_RESULT(${_gtk_mac})
       AC_SUBST(GTK_MAC_LIBS)
       AC_SUBST(GTK_MAC_CFLAGS)
+      AC_SUBST(GTK_MAC_CXXFLAGS)
     else
       AC_MSG_RESULT(no)
     fi
@@ -473,15 +486,10 @@ AM_CONDITIONAL(PLATFORM_OSX_QUARTZ, test "x$platform" = "xdarwin/quartz")
 AM_CONDITIONAL(PLATFORM_WIN32, test "x$platform" = "xwin32")
 AM_CONDITIONAL(OS_WIN32, test "x$native_win32" = "xyes")
 
-# These are unavailable on windows/mingw32 and X11 isn't desired or
+# These are unavailable on windows/mingw32
 # required for MacOSX Quartz
-if test "x$_gdk_tgt" = xquartz;
-then
-    AC_CHECK_HEADERS(glob.h)
-else
-    AC_CHECK_HEADERS(X11/Xlib.h glob.h)
-fi
-AM_CONDITIONAL(HAVE_X11_XLIB_H, test "x$ac_cv_header_X11_Xlib_h" = "xyes")
+AC_CHECK_HEADERS(glob.h)
+
 AC_CHECK_FUNCS(chown gethostname getppid getuid gettimeofday gmtime_r)
 AC_CHECK_FUNCS(gethostid link)
 ##################################################
@@ -1118,15 +1126,6 @@ fi
 dnl check for nl_langinfo(D_FMT) which is missing on FreeBSD
 LANGINFO_D_FMT_CHECK
 
-dnl Enable locale-specific tax-related information in the accounts
-AC_ARG_ENABLE( locale-specific-tax,
-  [AS_HELP_STRING([--enable-locale-specific-tax],[enable localized tax categories (experimental, but used by the german SKR04 account chart)])],
-  [
-  if test x$enableval = xyes; then
-    AC_DEFINE(LOCALE_SPECIFIC_TAX,1,Enable the experimental locale-specific tax categories)
-  fi
-  ])
-
 dnl Make sure we have a proper gettext installed
 AC_MSG_CHECKING(for a valid gettext/gmsgfmt installation)
 if test "$gt_cv_have_gettext" != "yes" || test "x$GMSGFMT" = "x"; then
@@ -1605,6 +1604,7 @@ AC_CONFIG_FILES(
   data/Makefile
   data/accounts/Makefile
   data/accounts/C/Makefile
+  data/accounts/ca/Makefile
   data/accounts/cs/Makefile
   data/accounts/da/Makefile
   data/accounts/de_AT/Makefile
@@ -1654,8 +1654,6 @@ AC_CONFIG_FILES(
   doc/Makefile
   doc/examples/Makefile
   gnucash/Makefile
-  gnucash/overrides/Makefile
-  gnucash/test/Makefile
   gnucash/gnome/Makefile
   gnucash/gnome/gtkbuilder/Makefile
   gnucash/gnome/gschemas/Makefile
@@ -1777,45 +1775,10 @@ AC_CONFIG_FILES(
   dnl # init-commands go here
 )
 dnl # Shell scripts, to have their shells set
-AC_CONFIG_FILES([libgnucash/app-utils/test/test-load-module],
-                [chmod +x libgnucash/app-utils/test/test-load-module])
 AC_CONFIG_FILES([libgnucash/backend/xml/test/test-real-data.sh],
                 [chmod +x libgnucash/backend/xml/test/test-real-data.sh])
-AC_CONFIG_FILES([gnucash/test/test-version],
-                [chmod +x gnucash/test/test-version])
-AC_CONFIG_FILES([libgnucash/engine/test/test-create-account],
-                [chmod +x libgnucash/engine/test/test-create-account])
-AC_CONFIG_FILES([libgnucash/engine/test/test-scm-query-import],
-                [chmod +x libgnucash/engine/test/test-scm-query-import])
-AC_CONFIG_FILES([libgnucash/gnc-module/test/test-gwrapped-c],
-                [chmod +x libgnucash/gnc-module/test/test-gwrapped-c])
-AC_CONFIG_FILES([libgnucash/gnc-module/test/test-load-deps],
-                [chmod +x libgnucash/gnc-module/test/test-load-deps])
-AC_CONFIG_FILES([libgnucash/gnc-module/test/test-load-scm],
-                [chmod +x libgnucash/gnc-module/test/test-load-scm])
-AC_CONFIG_FILES([libgnucash/gnc-module/test/test-scm-dynload],
-                [chmod +x libgnucash/gnc-module/test/test-scm-dynload])
-AC_CONFIG_FILES([libgnucash/gnc-module/test/test-scm-init],
-                [chmod +x libgnucash/gnc-module/test/test-scm-init])
-AC_CONFIG_FILES([libgnucash/gnc-module/test/test-scm-module],
-                [chmod +x libgnucash/gnc-module/test/test-scm-module])
-AC_CONFIG_FILES([libgnucash/gnc-module/test/test-scm-multi],
-                [chmod +x libgnucash/gnc-module/test/test-scm-multi])
-AC_CONFIG_FILES([gnucash/gnome-utils/test/test-load-module],
-                [chmod +x gnucash/gnome-utils/test/test-load-module])
-AC_CONFIG_FILES([gnucash/report/locale-specific/us/test/test-load-module],
-                [chmod +x gnucash/report/locale-specific/us/test/test-load-module])
-AC_CONFIG_FILES([gnucash/report/report-gnome/test/test-load-module],
-                [chmod +x gnucash/report/report-gnome/test/test-load-module])
-AC_CONFIG_FILES([gnucash/report/report-system/test/test-load-module],
-                [chmod +x gnucash/report/report-system/test/test-load-module])
-AC_CONFIG_FILES([gnucash/report/stylesheets/test/test-load-module],
-                [chmod +x gnucash/report/stylesheets/test/test-load-module])
-AC_CONFIG_FILES([libgnucash/tax/us/test/test-load-module],
-                [chmod +x libgnucash/tax/us/test/test-load-module])
 
-# A few files need extra actions at creation time
-AC_CONFIG_FILES([gnucash/overrides/gnucash-make-guids], [chmod u+x gnucash/overrides/gnucash-make-guids])
+
 #Link (copy on Windows) test data files:
 AC_CONFIG_LINKS([gnucash/import-export/csv-imp/test/sample1.csv:gnucash/import-export/csv-imp/test/sample1.csv])
 LDFLAGS="${LDFLAGS} ${NOUNDEF}"

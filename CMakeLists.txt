@@ -1,6 +1,6 @@
 # CMakeLists.txt for GnuCash
 
-IF (WIN32)
+IF (WIN32 OR APPLE)
   CMAKE_MINIMUM_REQUIRED (VERSION 3.3.2)
 ELSE()
   CMAKE_MINIMUM_REQUIRED (VERSION 3.0)
@@ -12,15 +12,15 @@ ENABLE_TESTING()
 
 # Version number of gnucash
 SET (GNUCASH_MAJOR_VERSION 2)
-SET (GNUCASH_MINOR_VERSION 6)
-SET (GNUCASH_MICRO_VERSION 99)
+SET (GNUCASH_MINOR_VERSION 7)
+SET (GNUCASH_MICRO_VERSION 2)
 SET (GNUCASH_NANO_VERSION 0)
 SET (VERSION "${GNUCASH_MAJOR_VERSION}.${GNUCASH_MINOR_VERSION}.${GNUCASH_MICRO_VERSION}")
 SET (GNUCASH_LATEST_STABLE_SERIES 2.6)
 
 SET (PACKAGE gnucash)
 SET (PACKAGE_NAME GnuCash)
-SET (PACKAGE_VERSION 2.6.99)
+SET (PACKAGE_VERSION 2.7.2)
 SET (PACKAGE_BUGREPORT gnucash-devel@gnucash.org)
 SET (PACKAGE_TARNAME ${PACKAGE})
 SET (PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
@@ -46,6 +46,7 @@ INCLUDE (GncConfigure)
 INCLUDE (GncAddGSchemaTargets)
 INCLUDE (GncAddTest)
 INCLUDE (MakeDistFiles)
+INCLUDE (GNUInstallDirs)
 
 # ############################################################
 # These options are settable from the CMake command line. For example, to disable
@@ -57,7 +58,6 @@ OPTION (WITH_GNUCASH "Build all of GnuCash, not just the library" ON)
 OPTION (WITH_OFX "compile with ofx support (needs LibOFX)" ON)
 OPTION (WITH_PYTHON "enable python plugin and bindings" OFF)
 OPTION (ENABLE_BINRELOC "compile with binary relocation support" ON)
-OPTION (ENABLE_DEBUG "compile with debugging flags set" OFF)
 OPTION (ENABLE_REGISTER2 "compile with register2 enabled" OFF)
 OPTION (DISABLE_NLS "do not use Native Language Support" OFF)
 OPTION (DISABLE_DEPRECATED_GLIB "don't use deprecated glib functions" OFF)
@@ -72,24 +72,43 @@ OPTION (AUTOTOOLS_IN_DIST "Add autotools support to distribution tarballs." ON)
 
 # These are also settable from the command line in a similar way.
 
-SET(BINDIR ${CMAKE_INSTALL_PREFIX}/bin CACHE STRING "user executables")
-SET(SYSCONFDIR ${CMAKE_INSTALL_PREFIX}/etc CACHE STRING "read-only single-machine data")
-SET(DATAROOTDIR ${CMAKE_INSTALL_PREFIX}/share CACHE STRING "read-only arch.-independent data root")
-SET(DATADIR ${DATAROOTDIR} CACHE STRING "read-only architecture-independent data")
-SET(LIBDIR ${CMAKE_INSTALL_PREFIX}/lib CACHE STRING "object code libraries")
+SET(GNUCASH_BUILD_ID "" CACHE STRING "Overrides the GnuCash build identification (Build ID) which defaults to a description of the vcs commit from which gnucash is built. Distributions may want to insert a package management based version number instead")
+
+# Check that all of the absolute install paths are inside
+# ${CMAKE_INSTALL_PREFIX}. If they're not, disable binreloc as it
+# won't be able to find paths that aren't relative to the location of
+# the executable.
+foreach(install_dir ${CMAKE_INSTALL_FULL_BINDIR}
+    ${CMAKE_INSTALL_FULL_SYSCONFDIR} ${CMAKE_INSTALL_FULL_DATAROOTDIR}
+    ${CMAKE_INSTALL_FULL_DATADIR} ${CMAKE_INSTALL_FULL_LIBDIR})
+  string(FIND ${install_dir} ${CMAKE_INSTALL_PREFIX} in_prefix)
+  if(in_prefix EQUAL -1)
+    set(ENABLE_BINRELOC OFF)
+    message(WARNING "${install_dir} is set outside of the intallation prefix ${CMAKE_INSTALL_PREFIX}. That will break relocation so ENABLE_BINRELOC is set to off. With relocation disabled GnuCash will run only in its configured install location. You must set GNC_UNINSTALLED=1 and GNC_BUILDDIR=/path/to/builddir to run from the build directory. GnuCash will not run from a DESTDIR.")
+    break()
+  endif()
+endforeach()
+
+# GnuCash installs two files in ${CMAKE_INSTALL_SYSCONFDIR}
+SET(BINDIR ${CMAKE_INSTALL_BINDIR} CACHE STRING "user executables")
+SET(SYSCONFDIR ${CMAKE_INSTALL_SYSCONFDIR} CACHE STRING "read-only single-machine data")
+SET(DATAROOTDIR ${CMAKE_INSTALL_DATAROOTDIR} CACHE STRING "read-only arch.-independent data root")
+SET(DATADIR ${CMAKE_INSTALL_DATADIR} CACHE STRING "read-only architecture-independent data")
+SET(LIBDIR ${CMAKE_INSTALL_LIBDIR} CACHE STRING "object code libraries")
 SET(LOCALEDIR ${DATAROOTDIR}/locale CACHE STRING "locale-dependent data")
 SET(GNC_HELPDIR ${DATADIR} CACHE STRING "where to store help files")
 SET(DATADIRNAME share)
 SET(GNC_SYSTEM_XDG_DATA_DIRS /usr/local/share /usr/share)
-SET(GNC_DBD_DIR ${CMAKE_PREFIX_PATH}/lib/dbd CACHE PATH "specify location of libdbi drivers")
-SET(PKGLIBDIR ${CMAKE_INSTALL_PREFIX}/lib/gnucash)
+SET(GNC_DBD_DIR ${CMAKE_PREFIX_LIBDIR}/dbd CACHE PATH "specify location of libdbi drivers")
+SET(PKGLIBDIR ${CMAKE_INSTALL_LIBDIR}/gnucash)
 SET(TEST_MYSQL_URL "" CACHE STRING "MySQL database URL for testing")
 SET(TEST_PGSQL_URL "" CACHE STRING "PgSQL database URL for testing")
-SET(HTMLHELP_DIR ${CMAKE_PREFIX_PATH}/hh CACHE PATH "Specify location of Win32 HTMLHELP library")
 
 SET(DATADIR_BUILD    ${CMAKE_BINARY_DIR}/${DATADIRNAME})
-SET(LIBDIR_BUILD     ${CMAKE_BINARY_DIR}/lib)
+STRING(REPLACE ${CMAKE_INSTALL_PREFIX} "" LIBDIR_BUILD ${LIBDIR})
+SET(LIBDIR_BUILD     ${CMAKE_BINARY_DIR}/${LIBDIR_BUILD})
 SET(SYSCONFDIR_BUILD ${CMAKE_BINARY_DIR}/etc)
+SET(LIBEXECDIR_BUILD ${CMAKE_BINARY_DIR}/libexec)
 SET(BINDIR_BUILD     ${CMAKE_BINARY_DIR}/bin)
 
 SET(SHELL_FROM_ENV $ENV{SHELL})
@@ -123,7 +142,7 @@ IF (GNC_VCS_INFO_RESULT EQUAL 0)
   # IF building from VCS, we need git
   find_package(Git)
   IF (NOT GIT_FOUND)
-    MESSAGE(SEND_ERROR "Looks like we're building from vesion control, but can't find git executable. Please set GIT_EXECUTABLE.")
+    MESSAGE(SEND_ERROR "Looks like we're building from version control, but can't find git executable. Please set GIT_EXECUTABLE.")
   ENDIF()
 ENDIF()
 
@@ -135,7 +154,7 @@ IF (WIN32)
   # should be provided as CMAKE_PREFIX_PATH on the CMake command line:
   #      cmake -D CMAKE_PREFIX_PATH=c/gcdev -G "MSYS Makefiles" path/to/gnucash/sources
   #
-
+  SET(CMAKE_C_IMPLICIT_LINK_LIBRARIES "")
   SET(CMAKE_FRAMEWORK_PATH_TMP ${CMAKE_PREFIX_PATH})
   SET(DEV_SUBDIRS aqbanking gnome guile gwenhywfar libgsf libofx libsoup libxslt webkit)
   FOREACH(subdir ${DEV_SUBDIRS})
@@ -178,10 +197,10 @@ GNC_PKG_CHECK_MODULES (GTHREAD REQUIRED gthread-2.0>=2.20)
 
 GNC_PKG_CHECK_MODULES (LIBXML2 REQUIRED libxml-2.0>=2.7.0)
 GNC_PKG_CHECK_MODULES (LIBXSLT REQUIRED libxslt)
-IF (WIN32)
+IF (WIN32 OR APPLE)
     GNC_PKG_CHECK_MODULES (WEBKIT REQUIRED webkitgtk-3.0)
     SET(WEBKIT1 1)
-ELSE (WIN32)
+ELSE (WIN32 OR APPLE)
   GNC_PKG_CHECK_MODULES (WEBKIT webkit2gtk-4.0)
   IF (NOT WEBKIT_FOUND)
     GNC_PKG_CHECK_MODULES (WEBKIT REQUIRED webkit2gtk-3.0)
@@ -189,10 +208,10 @@ ELSE (WIN32)
   ELSE (NOT WEBKIT_FOUND)
     SET(WEBKIT2_4 1)
   ENDIF (NOT WEBKIT_FOUND)
-ENDIF (WIN32)
+ENDIF (WIN32 OR APPLE)
 
 IF (WITH_GNUCASH)
-  GNC_PKG_CHECK_MODULES (GTK3 REQUIRED gtk+-3.0>=3.14.0)
+  GNC_PKG_CHECK_MODULES (GTK3 REQUIRED gtk+-3.0>=3.10.0)
 ENDIF (WITH_GNUCASH)
 
 GNC_PKG_CHECK_MODULES (ZLIB REQUIRED zlib)
@@ -236,9 +255,9 @@ FIND_PATH (REGEX_INCLUDE_PATH NAMES regex.h
 		  PATHS /usr/include /opt/gnome/include)
 FIND_LIBRARY (REGEX_LIBRARY NAMES regex)
 IF (WIN32)
-  message(STATUS "Looking for htmlhelp.h and htmlhelp.a in ${HTMLHELP_DIR}")
-  FIND_PATH (HTMLHELP_INCLUDE_PATH NAMES htmlhelp.h HINTS ${HTMLHELP_DIR}/include)
-  FIND_LIBRARY (HTMLHELP_LIBRARY htmlhelp HINTS ${HTMLHELP_DIR}/lib)
+  message(STATUS "Looking for htmlhelp.h and htmlhelp.a")
+  FIND_PATH (HTMLHELP_INCLUDE_PATH NAMES htmlhelp.h)
+  FIND_LIBRARY (HTMLHELP_LIBRARY htmlhelp)
 ENDIF (WIN32)
 
 # ############################################################
@@ -261,16 +280,17 @@ IF (GUILE2_FOUND) # found guile-2.0
   SET(GUILE_INCLUDE_DIRS ${GUILE2_INCLUDE_DIRS})
   SET(GUILE_LDFLAGS ${GUILE2_LDFLAGS})
 
-  FIND_PROGRAM (GUILD_EXECUTABLE guild)
+  FIND_PROGRAM (GUILD_EXECUTABLE NAMES guild2.0 guild)
   IF (NOT GUILD_EXECUTABLE)
     MESSAGE (SEND_ERROR "The guild executable was not found, but is required. Please set GUILD_EXECUTABLE.")
   ENDIF (NOT GUILD_EXECUTABLE)
   MESSAGE(STATUS "Using guile-2.0.x")
+  FIND_PROGRAM (GUILE_EXECUTABLE NAMES guile2.0 guile)
 ELSE()
   # look for guile 1.8
   GNC_PKG_CHECK_MODULES (GUILE1 guile-1.8>=1.8.8 QUIET)
   IF (NOT GUILE1_FOUND)
-    MESSAGE (SEND_ERROR "Neither guile 1.8 nor guile 2.0 where find. Please set PKG_CONFIG_PATH one of these is found.")
+    MESSAGE (FATAL_ERROR "Neither guile 1.8 nor guile 2.0 were found GnuCash can't run without one of them. Ensure that one is installed and can be found with pgk-config.")
   ENDIF(NOT GUILE1_FOUND)
 
   SET(HAVE_GUILE1 TRUE)
@@ -278,9 +298,9 @@ ELSE()
   SET(GUILE_INCLUDE_DIRS ${GUILE1_INCLUDE_DIRS})
   SET(GUILE_LDFLAGS ${GUILE1_LDFLAGS})
   MESSAGE(STATUS "Using guile-1.8.x")
+  FIND_PROGRAM (GUILE_EXECUTABLE NAMES guile1.8 guile)
 ENDIF()
 
-FIND_PROGRAM (GUILE_EXECUTABLE guile)
 IF (NOT GUILE_EXECUTABLE)
   MESSAGE (SEND_ERROR "The guile executable was not found, but is required. Please set GUILE_EXECUTABLE.")
 ENDIF (NOT GUILE_EXECUTABLE)
@@ -349,7 +369,7 @@ IF(APPLE)
       FIND_LIBRARY(COCOA_LIBRARY Cocoa)
       FIND_LIBRARY(SECURITY_LIBRARY Security)
       FIND_LIBRARY(CARBON_LIBRARY Carbon)
-      SET(OSX_EXTRA_COMPILE_FLAGS -xobjective-c)
+      SET(OSX_EXTRA_COMPILE_FLAGS $<$<COMPILE_LANGUAGE:C>:-xobjective-c> $<$<COMPILE_LANGUAGE:CXX>:-xobjective-c++>)
       SET(OSX_EXTRA_LIBRARIES objc ${COCOA_LIBRARY} ${SECURITY_LIBRARY} ${CARBON_LIBRARY})
     ENDIF(GTK_MAC_FOUND)
   ENDIF()
@@ -398,6 +418,20 @@ IF (WITH_PYTHON)
   IF (NOT PYTHONLIBS_FOUND)
     MESSAGE(SEND_ERROR "Python support enabled, but Python libraries not found.")
   ENDIF()
+
+  # Determine where to install the python libraries.
+  EXECUTE_PROCESS(
+    COMMAND ${PYTHON_EXECUTABLE} -c "from distutils import sysconfig; print sysconfig.get_python_lib(prefix='${CMAKE_INSTALL_PREFIX}', plat_specific=True)"
+    RESULT_VARIABLE PYTHON_SYSCONFIG_RESULT
+    OUTPUT_VARIABLE PYTHON_SYSCONFIG_OUTPUT
+    ERROR_VARIABLE PYTHON_SYSCONFIG_ERROR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_STRIP_TRAILING_WHITESPACE
+  )
+  IF (PYTHON_SYSCONFIG_RESULT)
+    MESSAGE(SEND_ERROR "Could not determine Python site-package directory:\n${PYTHON_SYSCONFIG_ERROR}")
+  ENDIF()
+  STRING(REPLACE ${CMAKE_INSTALL_PREFIX} ${CMAKE_BINARY_DIR} PYTHON_SYSCONFIG_BUILD ${PYTHON_SYSCONFIG_OUTPUT})  
 ENDIF()
 
 
@@ -477,10 +511,11 @@ SET( CMAKE_CXX_FLAGS_DEBUG "-O0 -g ${CMAKE_CXX_FLAGS} -Wno-deprecated-declaratio
 
 IF (APPLE AND WITH_GNUCASH)
   SET(CMAKE_MACOSX_RPATH ON)
+  SET(CMAKE_INSTALL_NAME_DIR "${CMAKE_INSTALL_FULL_LIBDIR}")
 ENDIF (APPLE AND WITH_GNUCASH)
 
-IF (UNIX AND NOT APPLE)
-  SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib/gnucash")
+IF (UNIX)
+  SET(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}:${PKGLIBDIR}")
 ENDIF()
 
 SET(BUILD_SHARED_LIBS ON)
@@ -490,13 +525,13 @@ SET(BUILD_SHARED_LIBS ON)
 # (after the targets have been read in).
 
 
-SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY         ${CMAKE_BINARY_DIR}/lib/gnucash)
+SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY         ${LIBDIR_BUILD}/gnucash)
 IF (XCODE_VERSION)
   # FIXME: These settings break the ability to manipulate different configurations (Debug,
   # FIXME: Release, etc.) in Xcode. We'll need to change the module loading C code if
   # we want to support multi config.
-  SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG   ${CMAKE_BINARY_DIR}/lib/gnucash)
-  SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/lib/gnucash)
+  SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG   ${LIBDIR_BUILD}/gnucash)
+  SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${LIBDIR_BUILD}/gnucash)
 ENDIF()
 
 # For binarines
@@ -538,6 +573,8 @@ SET(gnucash_DOCS
     ChangeLog.2012
     ChangeLog.2013
     ChangeLog.2014
+    ChangeLog.2015
+    ChangeLog.2016
     DOCUMENTERS
     HACKING
     LICENSE
@@ -546,7 +583,7 @@ SET(gnucash_DOCS
 )
 
 
-INSTALL(FILES ${gnucash_DOCS} DESTINATION share/doc/gnucash)
+INSTALL(FILES ${gnucash_DOCS} DESTINATION ${CMAKE_INSTALL_DOCDIR})
 
 # ############################################################
 
@@ -562,10 +599,6 @@ SET (HAVE_SCANF_I64D 1)
 ENDIF ()
 SET (HAVE_HTMLHELPW 1)
 ENDIF (WIN32)
-
-IF (NOT WIN32)
-CHECK_INCLUDE_FILES (X11/Xlib.h HAVE_X11_XLIB_H)
-ENDIF (NOT WIN32)
 
 CHECK_INCLUDE_FILES (dirent.h HAVE_DIRENT_H)
 CHECK_INCLUDE_FILES (dlfcn.h HAVE_DLFCN_H)
@@ -675,8 +708,8 @@ ADD_DEFINITIONS (-DHAVE_CONFIG_H)
 SET (CONFIG_H ${CMAKE_CURRENT_BINARY_DIR}/common/config.h)
 CONFIGURE_FILE (${CMAKE_CURRENT_SOURCE_DIR}/common/config.h.cmake.in ${CONFIG_H})
 
-SET(SCHEME_INSTALLED_SOURCE_DIR ${CMAKE_INSTALL_PREFIX}/share/gnucash/scm)
-SET(SCHEME_INSTALLED_CACHE_DIR ${CMAKE_INSTALL_PREFIX}/lib/gnucash/scm/ccache/${GUILE_EFFECTIVE_VERSION})
+SET(SCHEME_INSTALLED_SOURCE_DIR ${CMAKE_INSTALL_DATADIR}/gnucash/scm)
+SET(SCHEME_INSTALLED_CACHE_DIR ${PKGLIBDIR}/scm/ccache/${GUILE_EFFECTIVE_VERSION})
 
 # The subdirectories
 ADD_SUBDIRECTORY (borrowed)
@@ -794,10 +827,10 @@ add_custom_target(uninstall
 
 SET_TARGET_PROPERTIES(gnc-core-utils gnc-module gnc-backend-sql gnc-backend-xml-utils
   gnc-gnome PROPERTIES
-  LIBRARY_OUTPUT_DIRECTORY         ${CMAKE_BINARY_DIR}/lib
+  LIBRARY_OUTPUT_DIRECTORY         ${LIBDIR_BUILD}
   IF (XCODE_VERSION)
-    LIBRARY_OUTPUT_DIRECTORY_DEBUG   ${CMAKE_BINARY_DIR}/lib
-    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/lib
+    LIBRARY_OUTPUT_DIRECTORY_DEBUG   ${LIBDIR_BUILD}
+    LIBRARY_OUTPUT_DIRECTORY_RELEASE ${LIBDIR_BUILD}
   ENDIF()
 
   RUNTIME_OUTPUT_DIRECTORY         ${CMAKE_BINARY_DIR}/bin
@@ -808,7 +841,7 @@ SET_TARGET_PROPERTIES(gnc-core-utils gnc-module gnc-backend-sql gnc-backend-xml-
 )
 
 IF (WIN32)
-  SET_TARGET_PROPERTIES(gncmod-backend-xml gncmod-stylesheets gncmod-utility-reports PROPERTIES
+  SET_TARGET_PROPERTIES(gncmod-backend-xml gncmod-stylesheets PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
   )
 ENDIF()
@@ -820,8 +853,9 @@ IF (BUILDING_FROM_VCS)
     COMMAND ${GIT_EXECUTABLE} log --format=\"%ad %aN %n%n%x09* %s%d%n\" --date=short --since=2016-01-01 > ${CMAKE_BINARY_DIR}/ChangeLog
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   )
+  INSTALL(FILES ${CMAKE_BINARY_DIR}/ChangeLog DESTINATION ${CMAKE_INSTALL_DOCDIR})
 ELSE()
-  FILE(COPY ChangeLog DESTINATION ChangeLog)
+  INSTALL(FILES ${CMAKE_SOURCE_DIR}/ChangeLog DESTINATION ${CMAKE_INSTALL_DOCDIR})
 ENDIF()
 
 #Link LICENSE to COPYING so that people expecting to find it,
@@ -835,7 +869,7 @@ ENDIF()
 INSTALL(CODE
 " EXECUTE_PROCESS(
       COMMAND ${CMAKE_COMMAND} -E ${_CMD} LICENSE COPYING
-      WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/share/doc/gnucash
+      WORKING_DIRECTORY ${CMAKE_INSTALL_DOCDIR}
   )"
 )
 
@@ -845,7 +879,7 @@ IF (WIN32)
   FIND_LIBRARY(LIBSTDC++ libstdc++-6.dll)
   FIND_LIBRARY(LIBDW2 libgcc_s_dw2-1.dll)
   SET(MINGW_DLLS ${LIBSTDC++} ${LIBDW2})
-  INSTALL(PROGRAMS ${MINGW_DLLS} DESTINATION bin)
+  INSTALL(PROGRAMS ${MINGW_DLLS} DESTINATION ${CMAKE_INSTALL_BINDIR})
   FILE(COPY ${MINGW_DLLS} DESTINATION ${BINDIR_BUILD}
     # Do permissions matter for windows?
     FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE

@@ -8,6 +8,7 @@ pkglib_LTLIBRARIES = libgncmod-engine.la
 AM_CPPFLAGS = \
 	-I${top_srcdir}/borrowed/libc \
 	-I${top_srcdir}/libgnucash/core-utils \
+	-I${top_builddir}/libgnucash/core-utils \
 	-I${top_srcdir}/common \
 	-I${top_builddir}/common \
 	-I${top_srcdir}/libgnucash/gnc-module \
@@ -300,7 +301,7 @@ if BUILDING_FROM_VCS
 
 swig-engine.c: engine.i $(top_srcdir)/common/base-typemaps.i \
                $(gncinclude_HEADERS) $(noinst_HEADERS)
-	$(SWIG) -guile $(SWIG_ARGS) -Linkage module \
+	$(SWIG) -guile -Linkage module \
 	-I${top_srcdir}/common -o $@ $<
 if ! OS_WIN32
 if ! SWIG_DIST_FAIL

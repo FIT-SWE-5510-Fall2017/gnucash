@@ -23,7 +23,7 @@
  *                                                                  *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 #include <glib/gi18n.h>
@@ -3826,6 +3826,8 @@ boolean_from_key (const Account *acc, const char *key)
     GValue v = G_VALUE_INIT;
     g_return_val_if_fail(GNC_IS_ACCOUNT(acc), FALSE);
     qof_instance_get_kvp (QOF_INSTANCE(acc), key, &v);
+    if (G_VALUE_HOLDS_INT64 (&v))
+        return g_value_get_int64 (&v) != 0;
     if (G_VALUE_HOLDS_BOOLEAN (&v))
          return g_value_get_boolean (&v);
     if (G_VALUE_HOLDS_STRING (&v))
@@ -4444,16 +4446,17 @@ xaccAccountGetReconcilePostponeBalance (const Account *acc,
     g_return_val_if_fail(GNC_IS_ACCOUNT(acc), FALSE);
     qof_instance_get_kvp (QOF_INSTANCE(acc),
                           "reconcile-info/postpone/balance", &v);
-    if (G_VALUE_HOLDS_INT64 (&v))
-        bal = *(gnc_numeric*)g_value_get_boxed (&v);
+    if (!G_VALUE_HOLDS_INT64 (&v))
+        return FALSE;
 
-    if (bal.denom)
-    {
-        if (balance)
-            *balance = bal;
-        return TRUE;
-    }
-    return FALSE;
+    bal = *(gnc_numeric*)g_value_get_boxed (&v);
+    if (!bal.denom)
+        return FALSE;
+
+    if (balance)
+        *balance = bal;
+
+    return TRUE;
 }
 
 /********************************************************************\

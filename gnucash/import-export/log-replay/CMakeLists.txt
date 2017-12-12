@@ -20,15 +20,19 @@ TARGET_LINK_LIBRARIES(gncmod-log-replay gncmod-gnome-utils gncmod-app-utils gncm
 
 TARGET_COMPILE_DEFINITIONS(gncmod-log-replay PRIVATE -DG_LOG_DOMAIN=\"gnc.import.log-replay\")
 
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-log-replay PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
+
 INSTALL(TARGETS gncmod-log-replay
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # No headers to install.
 
 SET(log_replay_UI gnc-plugin-log-replay-ui.xml)
 
-INSTALL(FILES ${log_replay_UI} DESTINATION share/gnucash/ui)
+INSTALL(FILES ${log_replay_UI} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/ui)
 
 FILE(COPY ${log_replay_UI}
   DESTINATION ${DATADIR_BUILD}/gnucash/ui)

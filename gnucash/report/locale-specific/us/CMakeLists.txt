@@ -12,10 +12,14 @@ TARGET_LINK_LIBRARIES(gncmod-locale-reports-us gnc-module gncmod-app-utils gncmo
 TARGET_COMPILE_DEFINITIONS(gncmod-locale-reports-us PRIVATE -DG_LOG_DOMAIN=\"gnc.report.locale.us\")
 
 
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-locale-reports-us PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
+
 INSTALL(TARGETS gncmod-locale-reports-us
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # No headers to install
 
 # Scheme
@@ -26,19 +30,11 @@ SET(gncmod_local_reports_us_SCHEME_1 taxtxf.scm taxtxf-de_DE.scm)
 SET(gncmod_local_reports_us_SCHEME_2 us.scm de_DE.scm)
 
 
-SET(GUILE_MODULES libgnucash/app-utils libgnucash/engine gnucash/gnome-utils gnucash/html gnucash/report/report-system gnucash/tax/us)
-SET(GUILE_LOAD_DIRS  libgnucash/app-utils libgnucash/core-utils libgnucash/engine libgnucash/gnc-module gnucash/gnome-utils gnucash/report/report-system
-                     libgnucash/scm libgnucash/tax/us)
-SET(GUILE_LIBRARY_DIRS libgnucash/engine libgnucash/app-utils libgnucash/core-utils libgnucash/gnc-module gnucash/gnome-utils
-                       gnucash/html gnucash/report/report-system)
 SET(GUILE_DEPENDS   gncmod-html scm-tax-us-1 scm-tax-us-2 scm-report-system-3)
 
 GNC_ADD_SCHEME_TARGETS(scm-report-locale-specific-1
   "${gncmod_local_reports_us_SCHEME_1}"
   gnucash/report
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "${GUILE_DEPENDS}"
   FALSE
 )
@@ -46,9 +42,6 @@ GNC_ADD_SCHEME_TARGETS(scm-report-locale-specific-1
 GNC_ADD_SCHEME_TARGETS(scm-report-locale-specific-2
   "${gncmod_local_reports_us_SCHEME_2}"
   gnucash/report/locale-specific
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "scm-report-locale-specific-1;${GUILE_DEPENDS}"
   FALSE
 )

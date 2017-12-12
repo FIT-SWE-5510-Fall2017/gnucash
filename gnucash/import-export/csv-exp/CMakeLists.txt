@@ -25,19 +25,23 @@ TARGET_LINK_LIBRARIES(gncmod-csv-export gncmod-register-gnome gncmod-register-co
 
 TARGET_COMPILE_DEFINITIONS(gncmod-csv-export PRIVATE -DG_LOG_DOMAIN=\"gnc.export.csv\")
 
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-csv-export PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
+
 INSTALL(TARGETS gncmod-csv-export
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # No headers to install.
 
 SET(csv_export_GLADE assistant-csv-export.glade)
 
-INSTALL(FILES ${csv_export_GLADE} DESTINATION share/gnucash/gtkbuilder)
+INSTALL(FILES ${csv_export_GLADE} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/gtkbuilder)
 
 SET(csv_export_UI gnc-plugin-csv-export-ui.xml)
 
-INSTALL(FILES ${csv_export_UI} DESTINATION share/gnucash/ui)
+INSTALL(FILES ${csv_export_UI} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/ui)
 
 FILE(COPY ${csv_export_UI}
   DESTINATION ${DATADIR_BUILD}/gnucash/ui)

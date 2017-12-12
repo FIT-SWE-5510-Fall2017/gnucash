@@ -72,21 +72,25 @@ TARGET_INCLUDE_DIRECTORIES(gncmod-csv-import PRIVATE
      ${CMAKE_SOURCE_DIR}/borrowed/goffice
 )
 
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-csv-import PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
+
 INSTALL(TARGETS gncmod-csv-import
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # No headers to install
 
 SET(csv_import_GLADE assistant-csv-account-import.glade
       assistant-csv-trans-import.glade)
 
-INSTALL(FILES ${csv_import_GLADE} DESTINATION share/gnucash/gtkbuilder)
+INSTALL(FILES ${csv_import_GLADE} DESTINATION ${CMAKE_INSTALL_DATADIR}/gnucash/gtkbuilder)
 
 SET(csv_import_UI gnc-plugin-csv-import-ui.xml)
 
-INSTALL(FILES ${csv_import_UI} DESTINATION share/gnucash/ui)
+INSTALL(FILES ${csv_import_UI} DESTINATION ${CMAKE_INSTALL_DATADIR}/gnucash/ui)
 
 FILE(COPY ${csv_import_UI}
   DESTINATION ${DATADIR_BUILD}/gnucash/ui)

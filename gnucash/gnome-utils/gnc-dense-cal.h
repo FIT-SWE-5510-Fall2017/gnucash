@@ -23,7 +23,7 @@
 #ifndef _GNC_DENSE_CAL_H
 #define _GNC_DENSE_CAL_H
 
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 #include "gnc-dense-cal-model.h"
@@ -44,13 +44,6 @@ typedef struct _gdc_month_coords
     gint x, y;
 } gdc_month_coords;
 
-enum GDC_COLORS
-{
-    MONTH_THIS = 0,
-    MONTH_THAT,
-    MAX_COLORS
-};
-
 struct _GncDenseCal
 {
     GtkBox widget;
@@ -64,6 +57,9 @@ struct _GncDenseCal
 
     gboolean showPopup;
     GtkWindow *transPopup;
+    gint screen_width;
+    gint screen_height;
+    gint doc;
 
     gint min_x_scale;
     gint min_y_scale;
@@ -83,8 +79,6 @@ struct _GncDenseCal
     gint topPadding;
 
     gdc_month_coords monthPositions[12];
-
-    GdkRGBA weekColors[MAX_COLORS];
 
     guint label_width;
     guint label_height;

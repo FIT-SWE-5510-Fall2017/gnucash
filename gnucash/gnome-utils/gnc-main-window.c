@@ -32,7 +32,7 @@
     @author Copyright (C) 2003 Jan Arne Petersen <jpetersen@uni-bonn.de>
     @author Copyright (C) 2003,2005,2006 David Hampton <hampton@employees.org>
 */
-#include "config.h"
+#include <config.h>
 
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
@@ -720,8 +720,8 @@ gnc_main_window_restore_window (GncMainWindow *window, GncMainWindowSaveData *da
         if (active_windows)
             DEBUG("first window %p.", active_windows->data);
         window = gnc_main_window_new();
-        gtk_widget_show(GTK_WIDGET(window));
     }
+    gtk_widget_show(GTK_WIDGET(window));
 
     priv = GNC_MAIN_WINDOW_GET_PRIVATE(window);
 
@@ -952,6 +952,7 @@ gnc_main_window_restore_default_state(GncMainWindow *window)
     DEBUG("no saved state file");
     if (!window)
         window = g_list_nth_data(active_windows, 0);
+    gtk_widget_show (GTK_WIDGET(window));
     action = gnc_main_window_find_action(window, "ViewAccountTreeAction");
     gtk_action_activate(action);
 }
@@ -1600,14 +1601,13 @@ static guint gnc_statusbar_notification_messageid = 0;
  * statusbar by generate_statusbar_lastmodified_message. */
 static gboolean statusbar_notification_off(gpointer user_data_unused)
 {
-    GtkWidget *widget = gnc_ui_get_toplevel();
+    GncMainWindow *mainwindow = GNC_MAIN_WINDOW (gnc_ui_get_main_window (NULL));
     //g_warning("statusbar_notification_off\n");
     if (gnc_statusbar_notification_messageid == 0)
         return FALSE;
 
-    if (widget && GNC_IS_MAIN_WINDOW(widget))
+    if (mainwindow)
     {
-        GncMainWindow *mainwindow = GNC_MAIN_WINDOW(widget);
         GtkWidget *statusbar = gnc_main_window_get_statusbar(GNC_WINDOW(mainwindow));
         gtk_statusbar_remove(GTK_STATUSBAR(statusbar), 0, gnc_statusbar_notification_messageid);
         gnc_statusbar_notification_messageid = 0;
@@ -2670,16 +2670,16 @@ GncMainWindow *
 gnc_main_window_new (void)
 {
     GncMainWindow *window;
-    GtkWidget *old_window;
+    GtkWindow *old_window;
 
     window = g_object_new (GNC_TYPE_MAIN_WINDOW, NULL);
     gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
 
-    old_window = gnc_ui_get_toplevel();
+    old_window = gnc_ui_get_main_window (NULL);
     if (old_window)
     {
         gint width, height;
-        gtk_window_get_size (GTK_WINDOW (old_window), &width, &height);
+        gtk_window_get_size (old_window, &width, &height);
         gtk_window_resize (GTK_WINDOW (window), width, height);
         if ((gdk_window_get_state((gtk_widget_get_window (GTK_WIDGET(old_window))))
                 & GDK_WINDOW_STATE_MAXIMIZED) != 0)
@@ -4056,7 +4056,7 @@ show_handler (const char *class_name, gint component_id,
 }
 
 GtkWidget *
-gnc_book_options_dialog_cb (gboolean modal, gchar *title)
+gnc_book_options_dialog_cb (gboolean modal, gchar *title, GtkWindow* parent)
 {
     QofBook *book = gnc_get_current_book ();
     GNCOptionDB *options;
@@ -4073,9 +4073,10 @@ gnc_book_options_dialog_cb (gboolean modal, gchar *title)
     {
         return NULL;
     }
-    optionwin = gnc_options_dialog_new_modal (modal,
-                (title ? title : _( "Book Options")),
-                DIALOG_BOOK_OPTIONS_CM_CLASS);
+    optionwin = gnc_options_dialog_new_modal (
+        modal,
+        (title ? title : _( "Book Options")),
+        DIALOG_BOOK_OPTIONS_CM_CLASS, parent);
     gnc_options_dialog_build_contents (optionwin, options);
 
     gnc_options_dialog_set_book_options_help_cb (optionwin);
@@ -4094,7 +4095,7 @@ gnc_book_options_dialog_cb (gboolean modal, gchar *title)
 static void
 gnc_main_window_cmd_file_properties (GtkAction *action, GncMainWindow *window)
 {
-    gnc_book_options_dialog_cb (FALSE, NULL);
+    gnc_book_options_dialog_cb (FALSE, NULL, GTK_WINDOW (window));
 }
 
 static void
@@ -4461,43 +4462,40 @@ gnc_main_window_cmd_help_about (GtkAction *action, GncMainWindow *window)
 
     if (priv->about_dialog == NULL)
     {
-	const gchar *fixed_message = _("The GnuCash personal finance manager. "
-                                   "The GNU way to manage your money!");
-	const gchar *copyright = _("© 1997-2017 Contributors");
+        /* Translators: %s will be replaced with the current year */
+	gchar *copyright = g_strdup_printf(_("Copyright © 1997-%s The GnuCash contributors."),
+                                           GNC_VCS_REV_YEAR);
 	gchar **authors = get_file_strsplit("AUTHORS");
 	gchar **documenters = get_file_strsplit("DOCUMENTERS");
 	gchar *license = get_file("LICENSE");
-	gchar *message;
+        gchar *version = NULL;
+        gchar *vcs = NULL;
         GtkIconTheme *icon_theme = gtk_icon_theme_get_default ();
 	GdkPixbuf *logo = gtk_icon_theme_load_icon (icon_theme,
                                                     GNC_ICON_APP,
-                                                    48,
+                                                    128,
                                                     GTK_ICON_LOOKUP_USE_BUILTIN,
                                                     NULL);
 
-
-#ifdef GNUCASH_SCM
-    /* Development version */
-    /* Translators: 1st %s is a fixed message, which is translated independently;
-                    2nd %s is the scm type (svn/svk/git/bzr);
-                    3rd %s is the scm revision number;
-                    4th %s is the build date */
-	message = g_strdup_printf(_("%s\nThis copy was built from %s rev %s on %s."),
-				  fixed_message, GNUCASH_SCM, GNUCASH_SCM_REV,
-				  GNUCASH_BUILD_DATE);
+#ifdef GNC_VCS
+        vcs = GNC_VCS " ";
 #else
-    /* Translators: 1st %s is a fixed message, which is translated independently;
-                    2nd %s is the scm (svn/svk/git/bzr) revision number;
-                    3rd %s is the build date */
-	message = g_strdup_printf(_("%s\nThis copy was built from rev %s on %s."),
-				  fixed_message, GNUCASH_SCM_REV,
-				  GNUCASH_BUILD_DATE);
+        vcs = "";
 #endif
+
+        /* Allow builder to override the build id (eg distributions may want to
+         * print an package source version number (rpm, dpkg,...) instead of our git ref */
+        if (g_strcmp0("", GNUCASH_BUILD_ID) != 0)
+            version = g_strdup_printf ("%s: %s\n%s: %s", _("Version"), VERSION,
+                                       _("Build ID"), GNUCASH_BUILD_ID);
+        else
+            version = g_strdup_printf ("%s: %s\n%s: %s%s (%s)", _("Version"), VERSION,
+                                       _("Build ID"), vcs, GNC_VCS_REV, GNC_VCS_REV_DATE);
 	priv->about_dialog = gtk_about_dialog_new ();
 	g_object_set (priv->about_dialog,
 		      "authors", authors,
 		      "documenters", documenters,
-		      "comments", message,
+		      "comments", _("Accounting for personal and small business finance."),
 		      "copyright", copyright,
 		      "license", license,
 		      "logo", logo,
@@ -4507,11 +4505,13 @@ gnc_main_window_cmd_help_about (GtkAction *action, GncMainWindow *window)
       * The string can have multiple rows, so you can also add a list of
       * contributors. */
 		      "translator-credits", _("translator_credits"),
-		      "version", VERSION,
+		      "version", version,
 		      "website", "http://www.gnucash.org",
+		      "website_label", _("Visit the GnuCash website."),
 		      NULL);
 
-	g_free(message);
+        g_free(version);
+	g_free(copyright);
 	if (license)     g_free(license);
 	if (documenters) g_strfreev(documenters);
 	if (authors)     g_strfreev(authors);
@@ -4554,17 +4554,39 @@ gnc_main_window_show_all_windows(void)
 #endif
 }
 
-/** Get a pointer to the first active top level window or NULL
- *  if there is none.
- *
- *  @return A pointer to a GtkWindow object. */
-GtkWidget *
-gnc_ui_get_toplevel (void)
+GtkWindow *
+gnc_ui_get_gtk_window (GtkWidget *widget)
+{
+    GtkWidget *toplevel;
+
+    if (!widget)
+        return NULL;
+
+    toplevel = gtk_widget_get_toplevel (widget);
+    if (toplevel && GTK_IS_WINDOW (toplevel))
+        return GTK_WINDOW (toplevel);
+    else
+        return NULL;
+}
+
+GtkWindow *
+gnc_ui_get_main_window (GtkWidget *widget)
 {
     GList *window;
 
+    GtkWindow *toplevel = gnc_ui_get_gtk_window (widget);
+    while (toplevel && !GNC_IS_MAIN_WINDOW (toplevel))
+        toplevel = gtk_window_get_transient_for(toplevel);
+
+    if (toplevel)
+        return toplevel;
+
     for (window = active_windows; window; window = window->next)
         if (gtk_window_is_active (GTK_WINDOW (window->data)))
+            return window->data;
+
+    for (window = active_windows; window; window = window->next)
+        if (gtk_widget_get_mapped (GTK_WIDGET(window->data)))
             return window->data;
 
     return NULL;

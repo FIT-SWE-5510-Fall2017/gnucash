@@ -19,7 +19,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.        *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -140,8 +140,7 @@ gnc_file_dialog (const char * title,
 
     gtk_window_set_modal(GTK_WINDOW(file_box), TRUE);
     /*
-    gtk_window_set_transient_for(GTK_WINDOW(file_box),
-    		       GTK_WINDOW(gnc_ui_get_toplevel()));
+    gtk_window_set_transient_for(GTK_WINDOW(file_box), gnc_ui_get_main_window(NULL));
     */
 
     if (filters != NULL)
@@ -199,7 +198,7 @@ show_session_error (QofBackendError io_error,
                     const char *newfile,
                     GNCFileDialogType type)
 {
-    GtkWidget *parent = gnc_ui_get_toplevel();
+    GtkWindow *parent = gnc_ui_get_main_window (NULL);
     GtkWidget *dialog;
     gboolean uh_oh = TRUE;
     const char *fmt, *label;
@@ -306,7 +305,7 @@ show_session_error (QofBackendError io_error,
             break;
         }
 
-        dialog = gtk_message_dialog_new(GTK_WINDOW(parent),
+        dialog = gtk_message_dialog_new(parent,
                                         GTK_DIALOG_DESTROY_WITH_PARENT,
                                         GTK_MESSAGE_QUESTION,
                                         GTK_BUTTONS_NONE,
@@ -316,7 +315,7 @@ show_session_error (QofBackendError io_error,
                                _("_Cancel"), GTK_RESPONSE_CANCEL,
                                label, GTK_RESPONSE_YES,
                                NULL);
-        if (parent == NULL)
+        if (!parent)
             gtk_window_set_skip_taskbar_hint(GTK_WINDOW(dialog), FALSE);
         response = gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
@@ -570,7 +569,7 @@ gnc_file_new (void)
 gboolean
 gnc_file_query_save (gboolean can_cancel)
 {
-    GtkWidget *parent = gnc_ui_get_toplevel();
+    GtkWidget *parent = GTK_WIDGET (gnc_ui_get_main_window(NULL));
     QofBook *current_book;
 
     if (!gnc_current_session_exist())
@@ -775,17 +774,16 @@ RESTART:
                      );
         int rc;
 
+        GtkWindow *parent = gnc_get_splash_screen();
+        if (!parent)
+            parent = gnc_ui_get_main_window(NULL);
+
         if (! gnc_uri_is_file_uri (newfile)) /* Hide the db password in error messages */
             displayname = gnc_uri_normalize_uri ( newfile, FALSE);
         else
             displayname = g_strdup (newfile);
 
-        // Bug#467521: on Mac (and maybe Win?), the dialog will appear below the
-        // splash, but is modal, so we can't get rid of the splash...  So, get
-        // rid of it now.
-        gnc_destroy_splash_screen();
-
-        dialog = gtk_message_dialog_new(NULL,
+        dialog = gtk_message_dialog_new(parent,
                                         0,
                                         GTK_MESSAGE_WARNING,
                                         GTK_BUTTONS_NONE,
@@ -820,16 +818,10 @@ RESTART:
             break;
         case RESPONSE_READONLY:
             is_readonly = TRUE;
-            // re-enable the splash screen, file loading and display of
-            // reports may take some time
-            gnc_show_splash_screen();
             /* user told us to open readonly. We do ignore locks (just as before), but now also force the opening. */
             qof_session_begin (new_session, newfile, is_readonly, FALSE, TRUE);
             break;
         case RESPONSE_OPEN:
-            // re-enable the splash screen, file loading and display of
-            // reports may take some time
-            gnc_show_splash_screen();
             /* user told us to ignore locks. So ignore them. */
             qof_session_begin (new_session, newfile, TRUE, FALSE, FALSE);
             break;
@@ -956,7 +948,7 @@ RESTART:
                 uh_oh = TRUE;
 
                 // XXX: should pull out the file name here */
-                gnc_error_dialog(gnc_ui_get_toplevel(), msg, "");
+                gnc_error_dialog (gnc_ui_get_main_window (NULL), msg, "");
                 g_free (msg);
             }
             if (template_root != NULL)
@@ -1316,7 +1308,7 @@ gnc_file_save (void)
 
     if (qof_book_is_readonly(qof_session_get_book(session)))
     {
-        gint response = gnc_ok_cancel_dialog(gnc_ui_get_toplevel(),
+        gint response = gnc_ok_cancel_dialog(gnc_ui_get_main_window (NULL),
                                              GTK_RESPONSE_CANCEL,
                                              _("The database was opened read-only. "
                                                "Do you want to save it to a different place?"));

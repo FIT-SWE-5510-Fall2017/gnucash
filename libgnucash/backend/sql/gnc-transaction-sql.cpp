@@ -28,7 +28,7 @@
 #include <guid.hpp>
 extern "C"
 {
-#include "config.h"
+#include <config.h>
 
 #include <glib/gi18n.h>
 
@@ -69,7 +69,7 @@ extern "C"
 static QofLogModule log_module = G_LOG_DOMAIN;
 
 #define TRANSACTION_TABLE "transactions"
-#define TX_TABLE_VERSION 3
+#define TX_TABLE_VERSION 4
 #define SPLIT_TABLE "splits"
 #define SPLIT_TABLE_VERSION 4
 
@@ -143,11 +143,11 @@ static const EntryVec tx_guid_col_table
 };
 
 GncSqlTransBackend::GncSqlTransBackend() :
-    GncSqlObjectBackend(GNC_SQL_BACKEND_VERSION, GNC_ID_TRANS,
+    GncSqlObjectBackend(TX_TABLE_VERSION, GNC_ID_TRANS,
                         TRANSACTION_TABLE, tx_col_table) {}
 
 GncSqlSplitBackend::GncSqlSplitBackend() :
-    GncSqlObjectBackend(GNC_SQL_BACKEND_VERSION, GNC_ID_SPLIT,
+    GncSqlObjectBackend(SPLIT_TABLE_VERSION, GNC_ID_SPLIT,
                         SPLIT_TABLE, split_col_table) {}
 
 /* These functions exist but have not been tested.
@@ -481,6 +481,7 @@ GncSqlTransBackend::create_tables (GncSqlBackend* sql_be)
         /* Upgrade:
             1->2: 64 bit int handling
             2->3: allow dates to be NULL
+            3->4: Use DATETIME instead of TIMESTAMP in MySQL
         */
         sql_be->upgrade_table(m_table_name.c_str(), tx_col_table);
         sql_be->set_table_version (m_table_name.c_str(), m_version);
@@ -1308,8 +1309,9 @@ GncSqlColumnTableEntryImpl<CT_TXREF>::load (const GncSqlBackend* sql_be,
     {
         auto val = row.get_string_at_col (m_col_name);
         GncGUID guid;
-        (void)string_to_guid (val.c_str(), &guid);
-        auto tx = xaccTransLookup (&guid, sql_be->book());
+        Transaction *tx = nullptr;
+        if (string_to_guid (val.c_str(), &guid))
+            tx = xaccTransLookup (&guid, sql_be->book());
 
         // If the transaction is not found, try loading it
         if (tx == nullptr)

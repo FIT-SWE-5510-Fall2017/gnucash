@@ -28,6 +28,7 @@ extern "C"
 #include <config.h>
 #include "qof.h"
 #include <gnc-path.h>
+#include "gncla-dir.h"
 }
 
 #include <string>
@@ -104,12 +105,7 @@ static char* get_default_module_dir(const char* rel_path)
     if (uninstalled)
     {
 #ifdef CMAKE_BUILD
-    #ifdef WIN32
-        #define LIBDIR "bin"
-    #else
-        #define LIBDIR "lib/gnucash"
-    #endif
-        pkglibdir = g_build_path (G_DIR_SEPARATOR_S, builddir, LIBDIR, NULL);
+        pkglibdir = gnc_path_get_pkglibdir ();
 #else
         if (rel_path)
             pkglibdir = g_build_path (G_DIR_SEPARATOR_S, builddir,

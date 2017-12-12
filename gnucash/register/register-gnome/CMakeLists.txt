@@ -53,10 +53,14 @@ TARGET_INCLUDE_DIRECTORIES(gncmod-register-gnome
     PRIVATE ${CMAKE_SOURCE_DIR}/gnucash/register/ledger-core ${GTK3_INCLUDE_DIRS}
 )
 
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-register-gnome PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
+
 INSTALL(TARGETS gncmod-register-gnome
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # No headers to install
 
 SET_LOCAL_DIST(register_gnome_DIST_local CMakeLists.txt Makefile.am ${register_gnome_SOURCES} ${register_gnome_noinst_HEADERS})

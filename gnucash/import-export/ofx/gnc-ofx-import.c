@@ -23,7 +23,7 @@
      @brief Ofx import module code
      @author Copyright (c) 2002 Benoit Grégoire <bock@step.polymtl.ca>
  */
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -658,7 +658,7 @@ int ofx_proc_transaction_cb(struct OfxTransactionData data, void * transaction_u
                             // whether to continue or abort.
                             choosing_account =
                                 gnc_verify_dialog(
-                                    gnc_gen_trans_list_widget(gnc_ofx_importer_gui), TRUE,
+                                    GTK_WINDOW (gnc_gen_trans_list_widget(gnc_ofx_importer_gui)), TRUE,
                                     "The chosen account \"%s\" does not have the correct "
                                     "currency/security \"%s\" (it has \"%s\" instead). "
                                     "This account cannot be used. "
@@ -919,7 +919,7 @@ int ofx_proc_account_cb(struct OfxAccountData data, void * account_user_data)
          * calling 'gnc_import_select_account', allow the user to set book
          * options. */
         if (new_book)
-            new_book = gnc_new_book_option_display(gnc_ui_get_toplevel());
+            new_book = gnc_new_book_option_display (GTK_WIDGET (gnc_ui_get_main_window (NULL)));
 
         gnc_utf8_strip_invalid(data.account_name);
         gnc_utf8_strip_invalid(data.account_id);

@@ -28,7 +28,7 @@
 #include <guid.hpp>
 extern "C"
 {
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 
@@ -81,7 +81,7 @@ static gnc_numeric get_amount (gpointer pObj);
 static void set_amount (gpointer pObj, gnc_numeric value);
 
 GncSqlBudgetBackend::GncSqlBudgetBackend() :
-    GncSqlObjectBackend(GNC_SQL_BACKEND_VERSION, GNC_ID_BUDGET,
+    GncSqlObjectBackend(TABLE_VERSION, GNC_ID_BUDGET,
                         BUDGET_TABLE, col_table) {}
 
 typedef struct

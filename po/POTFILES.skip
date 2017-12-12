@@ -13,6 +13,7 @@ gnucash/gnome-utils/gnc-tree-model-selection.c
 
 libgnucash/app-utils/gnucash/app-utils.scm
 libgnucash/app-utils/gnucash/gettext.scm
+libgnucash/app-utils/test/test-load-app-utils-module.scm
 libgnucash/core-utils/gnucash/core-utils.scm
 libgnucash/engine/gnucash/business-core.scm
 libgnucash/engine/gnucash/engine.scm
@@ -68,11 +69,13 @@ gnucash/report/standard-reports/gnucash/report/standard-reports/budget-flow.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/budget-income-statement.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/budget.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/cash-flow.scm
+gnucash/report/standard-reports/gnucash/report/standard-reports/cashflow-barchart.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/category-barchart.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/daily-reports.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/equity-statement.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/general-journal.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/general-ledger.scm
+gnucash/report/standard-reports/gnucash/report/standard-reports/income-gst-statement.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/income-statement.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/net-barchart.scm
 gnucash/report/standard-reports/gnucash/report/standard-reports/net-linechart.scm

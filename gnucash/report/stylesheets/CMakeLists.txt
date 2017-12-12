@@ -16,16 +16,20 @@ TARGET_LINK_LIBRARIES(gncmod-stylesheets gncmod-report-gnome gncmod-report-syste
 
 TARGET_COMPILE_DEFINITIONS(gncmod-stylesheets PRIVATE -DG_LOG_DOMAIN=\"gnc.report.core\")
 
-SET(LIB_DIR lib/gnucash)
+SET(LIB_DIR ${CMAKE_INSTALL_LIBDIR}/gnucash)
 IF (WIN32)
-  SET(LIB_DIR bin)
+  SET(LIB_DIR ${CMAKE_INSTALL_BINDIR})
 ENDIF(WIN32)
 
+
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-stylesheets PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
 
 INSTALL(TARGETS gncmod-stylesheets
   LIBRARY DESTINATION ${LIB_DIR}
   ARCHIVE DESTINATION ${LIB_DIR}
-  RUNTIME DESTINATION bin)
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # No headers to install
 
@@ -44,17 +48,11 @@ SET(stylesheets_SCHEME_2
 )
 
 SET(GUILE_OUTPUT_DIR gnucash/report)
-SET(GUILE_MODULES libgnucash/app-utils libgnucash/engine gnucash/html gnucash/gnome-utils gnucash/report/report-system)
-SET(GUILE_LOAD_DIRS libgnucash/app-utils libgnucash/core-utils libgnucash/engine libgnucash/gnc-module gnucash/gnome-utils gnucash/report/report-system libgnucash/scm)
-SET(GUILE_LIBRARY_DIRS libgnucash/engine libgnucash/app-utils libgnucash/core-utils libgnucash/gnc-module gnucash/gnome-utils gnucash/html gnucash/report/report-system)
 SET(GUILE_DEPENDS gncmod-html scm-app-utils scm-report-system-3)
 
 GNC_ADD_SCHEME_TARGETS(scm-report-stylesheets-1
   "${stylesheets_SCHEME_1}"
   ${GUILE_OUTPUT_DIR}
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "${GUILE_DEPENDS}"
   TRUE
 )
@@ -62,9 +60,6 @@ GNC_ADD_SCHEME_TARGETS(scm-report-stylesheets-1
 GNC_ADD_SCHEME_TARGETS(scm-report-stylesheets-2
   "${stylesheets_SCHEME_2}"
   ${GUILE_OUTPUT_DIR}
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "scm-report-stylesheets-1;${GUILE_DEPENDS}"
   TRUE
 )
@@ -73,7 +68,7 @@ ADD_CUSTOM_TARGET(scm-report-stylesheets ALL DEPENDS scm-report-stylesheets-1 sc
 
 SET(stylesheets_UI gnc-plugin-stylesheets-ui.xml)
 
-INSTALL(FILES ${stylesheets_UI} DESTINATION share/gnucash/ui)
+INSTALL(FILES ${stylesheets_UI} DESTINATION  ${CMAKE_INSTALL_DATADIR}/gnucash/ui)
 
 FILE(COPY ${stylesheets_UI}
   DESTINATION ${DATADIR_BUILD}/gnucash/ui)

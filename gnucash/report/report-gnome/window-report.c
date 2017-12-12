@@ -25,7 +25,7 @@
  *                                                                  *
  ********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <glib/gi18n.h>
 #include <errno.h>
@@ -56,10 +56,10 @@
  ********************************************************************/
 
 void
-reportWindow(int report_id)
+reportWindow(int report_id, GtkWindow *parent)
 {
     gnc_set_busy_cursor (NULL, TRUE);
-    gnc_main_window_open_report(report_id, NULL);
+    gnc_main_window_open_report(report_id, GNC_MAIN_WINDOW(parent));
     gnc_unset_busy_cursor (NULL);
 }
 
@@ -88,7 +88,7 @@ gnc_options_dialog_apply_cb(GNCOptionWin * propertybox,
     results = gnc_option_db_commit (win->db);
     for (iter = results; iter; iter = iter->next)
     {
-        GtkWidget *dialog = gtk_message_dialog_new(NULL,
+        GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW (win->win),
                                                    0,
                                                    GTK_MESSAGE_ERROR,
                                                    GTK_BUTTONS_OK,
@@ -156,7 +156,8 @@ gnc_report_raise_editor(SCM report)
 
 
 GtkWidget *
-gnc_report_window_default_params_editor(SCM options, SCM report)
+gnc_report_window_default_params_editor(SCM options, SCM report,
+                                        GtkWindow *parent)
 {
     SCM get_report_type   = scm_c_eval_string("gnc:report-type");
     SCM get_template      = scm_c_eval_string("gnc:find-report-template");
@@ -190,7 +191,7 @@ gnc_report_window_default_params_editor(SCM options, SCM report)
         }
 
         /* Don't forget to translate the window title */
-        prm->win  = gnc_options_dialog_new((gchar*) (title && *title ? _(title) : ""));
+        prm->win  = gnc_options_dialog_new((gchar*) (title && *title ? _(title) : ""), parent);
 
         g_free ((gpointer *) title);
 
@@ -214,7 +215,7 @@ gnc_report_window_default_params_editor(SCM options, SCM report)
 }
 
 gboolean
-gnc_report_edit_options(SCM report)
+gnc_report_edit_options(SCM report, GtkWindow *parent)
 {
     SCM set_editor        = scm_c_eval_string("gnc:report-set-editor-widget!");
     SCM get_options       = scm_c_eval_string("gnc:report-options");
@@ -231,8 +232,8 @@ gnc_report_edit_options(SCM report)
     options = scm_call_1(get_options, report);
     if (options == SCM_BOOL_F)
     {
-        gnc_warning_dialog(GTK_WIDGET(gnc_ui_get_toplevel()), "%s",
-                           _("There are no options for this report."));
+        gnc_warning_dialog (parent, "%s",
+                            _("There are no options for this report."));
         return FALSE;
     }
 
@@ -244,7 +245,7 @@ gnc_report_edit_options(SCM report)
         if (g_strcmp0 (rpt_type, "d8ba4a2e89e8479ca9f6eccdeb164588") == 0)
             options_widget = gnc_column_view_edit_options (options, report);
         else
-            options_widget = gnc_report_window_default_params_editor (options, report);
+            options_widget = gnc_report_window_default_params_editor (options, report, parent);
         g_free (rpt_type);
     }
 
@@ -323,7 +324,7 @@ gnc_html_options_url_cb (const char *location, const char *label,
             return FALSE;
         }
 
-        gnc_report_edit_options (report);
+        gnc_report_edit_options (report, GTK_WINDOW(result->parent));
 
         return TRUE;
     }
@@ -349,7 +350,7 @@ gnc_html_report_url_cb (const char *location, const char *label,
         char *url;
 
         url = gnc_build_url (URL_TYPE_REPORT, location, label);
-        gnc_main_window_open_report_url (url, NULL);
+        gnc_main_window_open_report_url (url, GNC_MAIN_WINDOW(result->parent));
         g_free (url);
 
         result->load_to_stream = FALSE;

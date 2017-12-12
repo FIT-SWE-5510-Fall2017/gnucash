@@ -58,10 +58,10 @@ GncSqlColumnTableEntryImpl<CT_OWNERREF>::load (const GncSqlBackend* sql_be,
     GncOwnerType type;
     GncGUID guid;
     GncOwner owner;
-    GncGUID* pGuid = NULL;
+    GncGUID* pGuid = nullptr;
 
-    g_return_if_fail (sql_be != NULL);
-    g_return_if_fail (pObject != NULL);
+    g_return_if_fail (sql_be != nullptr);
+    g_return_if_fail (pObject != nullptr);
 
     auto book = sql_be->book();
     auto buf = std::string{m_col_name} + "_type";
@@ -70,14 +70,16 @@ GncSqlColumnTableEntryImpl<CT_OWNERREF>::load (const GncSqlBackend* sql_be,
         type = static_cast<decltype(type)>(row.get_int_at_col (buf.c_str()));
         buf = std::string{m_col_name} + "_guid";
         auto val = row.get_string_at_col (buf.c_str());
-        string_to_guid (val.c_str(), &guid);
-        pGuid = &guid;
+        if (string_to_guid (val.c_str(), &guid))
+            pGuid = &guid;
     }
     catch (std::invalid_argument)
     {
         return;
     }
-
+    if (type == GNC_OWNER_NONE || pGuid == nullptr)
+        return;
+    
     switch (type)
     {
     case GNC_OWNER_CUSTOMER:
@@ -222,12 +224,12 @@ GncSqlColumnTableEntryImpl<CT_OWNERREF>::add_to_query(QofIdTypeConst obj_name,
     std::ostringstream buf;
 
     buf << type;
-    vec.emplace_back(std::make_pair(type_hdr, buf.str()));
+    vec.emplace_back(std::make_pair(type_hdr, quote_string(buf.str())));
     buf.str("");
     auto guid = qof_instance_get_guid(inst);
     if (guid != nullptr)
-        buf << guid;
+        buf << guid_to_string(guid);
     else
         buf << "NULL";
-    vec.emplace_back(std::make_pair(guid_hdr, buf.str()));
+    vec.emplace_back(std::make_pair(guid_hdr, quote_string(buf.str())));
 }

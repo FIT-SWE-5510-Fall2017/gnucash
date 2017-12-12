@@ -29,7 +29,7 @@
  * @author Copyright (C) 2008 Andreas Koehler <andi5.py@gmx.net>
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <glib/gi18n.h>
 #if HAVE_KTOBLZCHECK_H
@@ -478,10 +478,10 @@ gnc_ab_trans_dialog_new(GtkWidget *parent, AB_ACCOUNT *ab_acc,
 static void
 gnc_ab_trans_dialog_entry_set (GtkWidget* entry,
                                const gchar* message,
-                               const gchar* stock_icon)
+                               const gchar* icon_name)
 {
     g_object_set (entry,
-                  "secondary-icon-stock", stock_icon,
+                  "secondary-icon-name", icon_name,
                   "secondary-icon-tooltip-text", message,
                   NULL);
 }
@@ -499,7 +499,7 @@ gnc_ab_trans_dialog_check_ktoblzcheck(const GncABTransDialog *td,
                                                "the account number might contain an error."),
                                              AB_Transaction_GetRemoteIban(trans));
             gnc_ab_trans_dialog_entry_set (td->recp_account_entry, message,
-                                           GTK_STOCK_DIALOG_WARNING);
+                                           "dialog-warning");
         }
         else
         {
@@ -540,9 +540,9 @@ gnc_ab_trans_dialog_check_ktoblzcheck(const GncABTransDialog *td,
                                   AB_Transaction_GetRemoteAccountNumber(trans),
                                   AB_Transaction_GetRemoteBankCode(trans));
         gnc_ab_trans_dialog_entry_set (td->recp_bankcode_entry, message,
-                                       GTK_STOCK_DIALOG_WARNING);
+                                       "dialog-warning");
         gnc_ab_trans_dialog_entry_set (td->recp_account_entry, message,
-                                       GTK_STOCK_DIALOG_WARNING);
+                                       "dialog-warning");
 
         blztext = "Kontonummer wahrscheinlich falsch";
         break;
@@ -606,7 +606,7 @@ gnc_ab_trans_dialog_verify_values(GncABTransDialog *td)
             const char* localBankCode = AB_Transaction_GetLocalBankCode(td->ab_trans);
             const char* localAccountCode = AB_Transaction_GetLocalAccountNumber(td->ab_trans);
             values_ok = FALSE;
-            gnc_error_dialog(td->dialog,
+            gnc_error_dialog(GTK_WINDOW (td->dialog),
                              _("Your local bank account does not yet have the SEPA account information stored."
                                " We are sorry, but in this development version one additional step is necessary "
                                "which has not yet been implemented directly in gnucash. "
@@ -624,7 +624,7 @@ gnc_ab_trans_dialog_verify_values(GncABTransDialog *td)
         gnc_ab_trans_dialog_entry_set (td->recp_name_entry,
                                        _("You did not enter a recipient name. A recipient name is "
                                          "required for an online transfer.\n"),
-                                       GTK_STOCK_CANCEL);
+                                       "process-stop");
 
         g_free (othername);
         values_ok = FALSE;
@@ -644,7 +644,7 @@ gnc_ab_trans_dialog_verify_values(GncABTransDialog *td)
         gnc_ab_trans_dialog_entry_set (td->recp_account_entry,
                                        _("You did not enter a recipient account. A recipient account is "
                                          "required for an online transfer.\n"),
-                                       GTK_STOCK_CANCEL);
+                                       "process-stop");
         values_ok = FALSE;
     }
     else
@@ -660,7 +660,7 @@ gnc_ab_trans_dialog_verify_values(GncABTransDialog *td)
         gnc_ab_trans_dialog_entry_set (td->recp_bankcode_entry,
                                        _("You did not enter a recipient bank. A recipient bank is "
                                          "required for an online transfer.\n"),
-                                       GTK_STOCK_CANCEL);
+                                       "process-stop");
         values_ok = FALSE;
     }
     else
@@ -680,7 +680,7 @@ gnc_ab_trans_dialog_verify_values(GncABTransDialog *td)
                                          "interpreted correctly. You might have mixed up decimal "
                                          "point and comma, compared to your locale settings. "
                                          "This does not result in a valid online transfer job."),
-                                       GTK_STOCK_CANCEL);
+                                       "process-stop");
         values_ok = FALSE;
     }
     else
@@ -688,14 +688,14 @@ gnc_ab_trans_dialog_verify_values(GncABTransDialog *td)
         gnc_ab_trans_dialog_entry_set (amount_entry, "", NULL);
     }
 
-    /* Check transaction purpose */
-    purpose = gnc_ab_get_purpose(td->ab_trans);
+    /* Check transaction purpose. OFX doesn't do transfers. */
+    purpose = gnc_ab_get_purpose(td->ab_trans, FALSE);
     if (!purpose || !strlen(purpose))
     {
         gnc_ab_trans_dialog_entry_set (td->purpose_entry,
                                        _("You did not enter any transaction purpose. A purpose is "
                                          "required for an online transfer.\n"),
-                                       GTK_STOCK_CANCEL);
+                                       "process-stop");
         g_free (purpose);
         values_ok = FALSE;
     }
@@ -721,7 +721,7 @@ gnc_ab_trans_dialog_verify_values(GncABTransDialog *td)
                                          "\n\n"
                                          "In particular, neither Umlauts nor an ampersand (&) is allowed, "
                                          "neither in the recipient or sender name nor in any purpose line."),
-                                       GTK_STOCK_CANCEL);
+                                       "process-stop");
         values_ok = FALSE;
     }
 #endif
@@ -1179,7 +1179,7 @@ gnc_ab_trans_dialog_add_templ_cb(GtkButton *button, gpointer user_data)
                                find_templ_helper, &data);
         if (data.pointer)
         {
-            gnc_error_dialog(dialog, "%s",
+            gnc_error_dialog(GTK_WINDOW (dialog), "%s",
                              _("A template with the given name already exists. "
                                "Please enter another name."));
             continue;
@@ -1313,8 +1313,8 @@ gnc_ab_trans_dialog_del_templ_cb(GtkButton *button, gpointer user_data)
     }
 
     gtk_tree_model_get(model, &iter, TEMPLATE_NAME, &name, -1);
-    if (gnc_verify_dialog(
-                td->parent, FALSE,
+    if (gnc_verify_dialog (
+                GTK_WINDOW (td->parent), FALSE,
                 _("Do you really want to delete the template with the name \"%s\"?"),
                 name))
     {

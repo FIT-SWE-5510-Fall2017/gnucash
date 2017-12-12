@@ -29,7 +29,7 @@
  * @author Copyright (C) 2008 Andreas Koehler <andi5.py@gmx.net>
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
@@ -56,8 +56,8 @@ save_templates(GtkWidget *parent, Account *gnc_acc, GList *templates,
                gboolean dont_ask)
 {
     g_return_if_fail(gnc_acc);
-    if (dont_ask || gnc_verify_dialog(
-                parent, FALSE, "%s",
+    if (dont_ask || gnc_verify_dialog (
+                GTK_WINDOW (parent), FALSE, "%s",
                 _("You have changed the list of online transfer templates, "
                   "but you cancelled the transfer dialog. "
                   "Do you nevertheless want to store the changes?")))
@@ -113,7 +113,7 @@ gnc_ab_maketrans(GtkWidget *parent, Account *gnc_acc,
     if (!ab_acc)
     {
         g_warning("gnc_ab_gettrans: No AqBanking account found");
-        gnc_error_dialog(parent, _("No valid online banking account assigned."));
+        gnc_error_dialog (GTK_WINDOW (parent), _("No valid online banking account assigned."));
         goto cleanup;
     }
 
@@ -180,8 +180,8 @@ gnc_ab_maketrans(GtkWidget *parent, Account *gnc_acc,
 #endif
                                             ))
         {
-            if (!gnc_verify_dialog(
-                        parent, FALSE, "%s",
+            if (!gnc_verify_dialog (
+                        GTK_WINDOW (parent), FALSE, "%s",
                         _("The backend found an error during the preparation "
                           "of the job. It is not possible to execute this job. \n"
                           "\n"
@@ -238,7 +238,8 @@ gnc_ab_maketrans(GtkWidget *parent, Account *gnc_acc,
         gnc_xfer_dialog_set_amount_sensitive(xfer_dialog, FALSE);
         gnc_xfer_dialog_set_date_sensitive(xfer_dialog, FALSE);
 
-        description = gnc_ab_description_to_gnc(ab_trans);
+        /* OFX doesn't do transfers. */
+        description = gnc_ab_description_to_gnc(ab_trans, FALSE);
         gnc_xfer_dialog_set_description(xfer_dialog, description);
         g_free(description);
 
@@ -288,8 +289,8 @@ gnc_ab_maketrans(GtkWidget *parent, Account *gnc_acc,
                     && job_status != AB_Job_StatusPending)
             {
                 successful = FALSE;
-                if (!gnc_verify_dialog(
-                            parent, FALSE, "%s",
+                if (!gnc_verify_dialog (
+                            GTK_WINDOW (parent), FALSE, "%s",
                             _("An error occurred while executing the job. Please check "
                               "the log window for the exact error message.\n"
                               "\n"

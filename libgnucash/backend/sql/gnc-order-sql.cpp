@@ -31,7 +31,7 @@
 #include <guid.hpp>
 extern "C"
 {
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 #include <stdlib.h>
@@ -75,7 +75,7 @@ static EntryVec col_table
 });
 
 GncSqlOrderBackend::GncSqlOrderBackend() :
-    GncSqlObjectBackend(GNC_SQL_BACKEND_VERSION, GNC_ID_ORDER,
+    GncSqlObjectBackend(TABLE_VERSION, GNC_ID_ORDER,
                         TABLE_NAME, col_table) {}
 
 static GncOrder*

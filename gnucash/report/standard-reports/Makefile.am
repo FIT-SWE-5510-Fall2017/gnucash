@@ -17,11 +17,13 @@ gncscmrpt_DATA = \
    budget-flow.scm \
    budget-income-statement.scm \
    cash-flow.scm \
+   cashflow-barchart.scm \
    category-barchart.scm \
    daily-reports.scm \
    equity-statement.scm \
    general-journal.scm \
    general-ledger.scm \
+   income-gst-statement.scm \
    income-statement.scm \
    net-barchart.scm \
    net-linechart.scm \

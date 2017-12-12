@@ -224,7 +224,6 @@ GncSqlBackend::ObjectBackendRegistry::load_remaining(GncSqlBackend* sql_be)
         std::string type;
         GncSqlObjectBackendPtr obe = nullptr;
         std::tie(type, obe) = entry;
-        if (!obe->is_version(GNC_SQL_BACKEND_VERSION)) continue;
 
         /* Don't need to load anything if it has already been loaded with
          * the fixed order.
@@ -884,7 +883,7 @@ GncSqlBackend::build_insert_statement (const char* table_name,
     {
         if (col_value != *values.begin())
             sql << ",";
-        sql << quote_string(col_value.second);
+        sql << col_value.second;
     }
     sql << ")";
 
@@ -915,7 +914,7 @@ GncSqlBackend::build_update_statement(const gchar* table_name,
         if (col_value != *values.begin())
             sql << ",";
         sql << col_value.first << "=" <<
-            quote_string(col_value.second);
+            col_value.second;
     }
 
     stmt = create_statement_from_sql(sql.str());

@@ -28,7 +28,7 @@
  * \brief A very generic and flexible account matcher/picker
  \author Copyright (C) 2002 Benoit Grégoire <bock@step.polymtl.ca>
  */
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -189,7 +189,7 @@ account_tree_row_activated_cb(GtkTreeView *view, GtkTreePath *path,
         /* See if the selected account is a placeholder. */
         if (picker->retAccount && xaccAccountGetPlaceholder (picker->retAccount))
         {
-            gnc_error_dialog (picker->dialog,
+            gnc_error_dialog (GTK_WINDOW (picker->dialog),
                               _("The account %s is a placeholder account and does not allow "
                                 "transactions. Please choose a different account."),
                               retval_name);
@@ -365,7 +365,7 @@ Account * gnc_import_select_account(GtkWidget *parent,
                 if (retval && xaccAccountGetPlaceholder (retval))
                 {
                     gnc_error_dialog
-                    (picker->dialog,
+                    (GTK_WINDOW (picker->dialog),
                      _("The account %s is a placeholder account and does not allow "
                        "transactions. Please choose a different account."),
                      retval_name);

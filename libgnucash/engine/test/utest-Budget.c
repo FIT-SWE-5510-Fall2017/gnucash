@@ -19,7 +19,7 @@
  * 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652       *
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 ********************************************************************/
-#include "config.h"
+#include <config.h>
 #include <string.h>
 #include <glib.h>
 #include <unittest-support.h>
@@ -604,6 +604,12 @@ test_gnc_account_create_and_destroy (void)
     g_free (notes);
     g_free (tax_code);
     g_free (tax_src);
+    g_free (start_bal);
+    g_free (start_clr_bal);
+    g_free (start_rec_bal);
+    g_free (end_bal);
+    g_free (end_clr_bal);
+    g_free (end_rec_bal);
 
     g_object_unref (acc);
     /* There's no good way to test that the object has been properly

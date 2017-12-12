@@ -28,7 +28,7 @@
  *     Dave Peticolas <dave@krondo.com>
  */
 
-#include "config.h"
+#include <config.h>
 #include <glib.h>
 #include <glib/gprintf.h>
 #include <gdk/gdkkeysyms.h>
@@ -37,6 +37,7 @@
 #include "gnucash-sheetP.h"
 
 #include "dialog-utils.h"
+#include "gnc-gtk-utils.h"
 #include "gnc-prefs.h"
 #include "gnucash-color.h"
 #include "gnucash-cursor.h"
@@ -44,7 +45,7 @@
 #include "gnucash-header.h"
 #include "gnucash-item-edit.h"
 #include "split-register.h"
-#include "gnc-engine.h"		// For debugging, e.g. ENTER(), LEAVE()
+#include "gnc-engine.h"     // For debugging, e.g. ENTER(), LEAVE()
 
 #ifdef G_OS_WIN32
 # include <gdk/gdkwin32.h>
@@ -260,6 +261,88 @@ gnucash_sheet_deactivate_cursor_cell (GnucashSheet *sheet)
     gnucash_sheet_redraw_block (sheet, virt_loc.vcell_loc);
 }
 
+void
+gnucash_sheet_set_text_bounds (GnucashSheet *sheet, GdkRectangle *rect,
+                               gint x, gint y, gint width, gint height)
+{
+    GncItemEdit *item_edit = GNC_ITEM_EDIT(sheet->item_editor);
+
+    rect->x = x + gnc_item_edit_get_margin (item_edit, left);
+    rect->y = y + gnc_item_edit_get_margin (item_edit, top);
+    rect->width = MAX (0, width - gnc_item_edit_get_margin (item_edit, left_right));
+    rect->height = height - gnc_item_edit_get_margin (item_edit, top_bottom);
+}
+
+gint
+gnucash_sheet_get_text_offset (GnucashSheet *sheet, const VirtualLocation virt_loc,
+                                gint rect_width, gint logical_width)
+{
+    GncItemEdit *item_edit = GNC_ITEM_EDIT(sheet->item_editor);
+    Table *table = sheet->table;
+    gint x_offset = 0;
+
+    // Get the alignment of the cell
+    switch (gnc_table_get_align (table, virt_loc))
+    {
+    default:
+    case CELL_ALIGN_LEFT:
+        x_offset = gnc_item_edit_get_padding_border (item_edit, left);
+        break;
+
+    case CELL_ALIGN_RIGHT:
+        x_offset = rect_width - gnc_item_edit_get_padding_border (item_edit, right) - logical_width - 1;
+        break;
+
+    case CELL_ALIGN_CENTER:
+        if (logical_width > rect_width)
+            x_offset = 0;
+        else
+            x_offset = (rect_width - logical_width) / 2;
+        break;
+    }
+    return x_offset;
+}
+
+static gint
+gnucash_sheet_get_text_cursor_position (GnucashSheet *sheet, const VirtualLocation virt_loc)
+{
+    GncItemEdit *item_edit = GNC_ITEM_EDIT(sheet->item_editor);
+    Table *table = sheet->table;
+    const char *text = gnc_table_get_entry (table, virt_loc);
+    PangoLayout *layout;
+    PangoRectangle logical_rect;
+    GdkRectangle rect;
+    gint x, y, width, height;
+    gint index, trailing;
+    gboolean result;
+    gint x_offset = 0;
+
+    if ((text == NULL) || (*text == '\0'))
+        return 0;
+
+    // Get the item_edit position
+    gnc_item_edit_get_pixel_coords (item_edit, &x, &y, &width, &height);
+
+    layout = gtk_widget_create_pango_layout (GTK_WIDGET (sheet), text);
+
+    // We don't need word wrap or line wrap
+    pango_layout_set_width (layout, -1);
+
+    pango_layout_get_pixel_extents (layout, NULL, &logical_rect);
+
+    gnucash_sheet_set_text_bounds (sheet, &rect, x, y, width, height);
+
+    x_offset = gnucash_sheet_get_text_offset (sheet, virt_loc,
+                                              rect.width, logical_rect.width);
+
+    result = pango_layout_xy_to_index (layout,
+                 PANGO_SCALE * (sheet->button_x - rect.x - x_offset),
+                 PANGO_SCALE * (height/2), &index, &trailing);
+
+    g_object_unref (layout);
+
+    return index + trailing;
+}
 
 static void
 gnucash_sheet_activate_cursor_cell (GnucashSheet *sheet,
@@ -309,8 +392,18 @@ gnucash_sheet_activate_cursor_cell (GnucashSheet *sheet,
     {
         gnucash_sheet_im_context_reset(sheet);
         gnucash_sheet_start_editing_at_cursor (sheet);
-        gtk_editable_set_position (editable, cursor_pos);
-        gtk_editable_select_region (editable, start_sel, end_sel);
+
+        // Came here by keyboard, select text, otherwise text cursor to
+        // mouse position
+        if (sheet->button != 1)
+        {
+            gtk_editable_set_position (editable, cursor_pos);
+            gtk_editable_select_region (editable, start_sel, end_sel);
+        }
+        else
+            gtk_editable_set_position (editable,
+                gnucash_sheet_get_text_cursor_position (sheet, virt_loc));
+
         sheet->direct_update_cell =
             gnucash_sheet_check_direct_update_cell (sheet, virt_loc);
     }
@@ -1057,7 +1150,12 @@ gnucash_sheet_draw_cb (GtkWidget *widget, cairo_t *cr, G_GNUC_UNUSED gpointer da
     gboolean result; //FIXME
 
     gtk_widget_get_allocation(widget, &alloc);
-    gtk_render_background (context, cr, alloc.x, alloc.y, alloc.width, alloc.height);
+
+    gtk_style_context_save (context);
+    gtk_style_context_add_class (context, GTK_STYLE_CLASS_BACKGROUND);
+    gtk_render_background (context, cr, 0, 0, alloc.width, alloc.height);
+    gtk_style_context_restore (context);
+
 //FIXME what should be done with result being TRUE or FALSE
     result = gnucash_sheet_draw_internal (sheet, cr, &alloc);
     gnucash_sheet_draw_cursor (sheet->cursor, cr);
@@ -1110,7 +1208,7 @@ gnucash_sheet_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
             gnucash_sheet_show_row (sheet,
                                     virt_loc.vcell_loc.virt_row);
     }
-
+    gnc_header_request_redraw (GNC_HEADER(sheet->header_item));
     LEAVE(" ");
 }
 
@@ -1215,7 +1313,7 @@ gnucash_sheet_start_editing_at_cursor (GnucashSheet *sheet)
 }
 
 static gboolean
-gnucash_button_release_event (GtkWidget *widget, GdkEventButton *event)
+gnucash_sheet_button_release_event (GtkWidget *widget, GdkEventButton *event)
 {
     GnucashSheet *sheet;
 
@@ -1262,14 +1360,27 @@ gnucash_scroll_event (GtkWidget *widget, GdkEventScroll *event)
     case GDK_SCROLL_DOWN:
         v_value += gtk_adjustment_get_step_increment (vadj);
         break;
+    case GDK_SCROLL_SMOOTH:
+        if (event->delta_y < 0)
+            v_value -= gtk_adjustment_get_step_increment (vadj);
+        if (event->delta_y > 0)
+            v_value += gtk_adjustment_get_step_increment (vadj);
+        break;
     default:
         return FALSE;
     }
-
-    v_value = CLAMP(v_value, gtk_adjustment_get_lower (vadj), gtk_adjustment_get_upper (vadj) - gtk_adjustment_get_page_size (vadj));
+    v_value = CLAMP(v_value, gtk_adjustment_get_lower (vadj),
+              gtk_adjustment_get_upper (vadj) - gtk_adjustment_get_page_size (vadj));
 
     gtk_adjustment_set_value(vadj, v_value);
 
+    if (event->delta_y == 0)
+    {
+        // There are problems with the slider not tracking the value so
+        // when delta_y is 0 hide and showing the scrollbar seems to fix it
+        gtk_widget_hide (GTK_WIDGET(sheet->vscrollbar));
+        gtk_widget_show (GTK_WIDGET(sheet->vscrollbar));
+    }
     return TRUE;
 }
 
@@ -1306,7 +1417,7 @@ gnucash_sheet_check_grab (GnucashSheet *sheet)
 }
 
 static gboolean
-gnucash_button_press_event (GtkWidget *widget, GdkEventButton *event)
+gnucash_sheet_button_press_event (GtkWidget *widget, GdkEventButton *event)
 {
     GnucashSheet *sheet;
     VirtualCell *vcell;
@@ -1359,9 +1470,15 @@ gnucash_button_press_event (GtkWidget *widget, GdkEventButton *event)
 
     gnucash_cursor_get_virt (GNUCASH_CURSOR(sheet->cursor), &cur_virt_loc);
 
+    sheet->button_x = -1;
+    sheet->button_y = -1;
+
     if (!gnucash_sheet_find_loc_by_pixel(sheet,
                                         event->x, event->y, &new_virt_loc))
         return TRUE;
+
+    sheet->button_x = event->x;
+    sheet->button_y = event->y;
 
     vcell = gnc_table_get_virtual_cell (table, new_virt_loc.vcell_loc);
     if (vcell == NULL)
@@ -1400,6 +1517,7 @@ gnucash_button_press_event (GtkWidget *widget, GdkEventButton *event)
 
     if (abort_move)
         return TRUE;
+
 //FIXME does something need to be done if changed_cells is true or false ?
     changed_cells = gnucash_sheet_cursor_move (sheet, new_virt_loc);
 
@@ -2092,6 +2210,7 @@ gnucash_sheet_col_max_width (GnucashSheet *sheet, gint virt_col, gint cell_col)
     SheetBlock *block;
     SheetBlockStyle *style;
     PangoLayout *layout = gtk_widget_create_pango_layout (GTK_WIDGET (sheet), "");
+    GncItemEdit *item_edit = GNC_ITEM_EDIT(sheet->item_editor);
 
     g_return_val_if_fail (virt_col >= 0, 0);
     g_return_val_if_fail (virt_col < sheet->num_virt_cols, 0);
@@ -2131,7 +2250,7 @@ gnucash_sheet_col_max_width (GnucashSheet *sheet, gint virt_col, gint cell_col)
                 pango_layout_set_text (layout, text, strlen (text));
                 pango_layout_get_pixel_size (layout, &width, NULL);
 
-                width += 2 * CELL_HPADDING;
+                width += gnc_item_edit_get_margin (item_edit, left_right);
 
                 max = MAX (max, width);
             }
@@ -2307,163 +2426,63 @@ gnucash_sheet_table_load (GnucashSheet *sheet, gboolean do_scroll)
     gnucash_sheet_activate_cursor_cell (sheet, TRUE);
 }
 
-static void
-gnucash_sheet_realize_entry (GnucashSheet *sheet, GtkWidget *entry)
-{
-    GValue gval = {0,};
-    g_value_init (&gval, G_TYPE_BOOLEAN);
-    g_value_set_boolean (&gval, FALSE);
-    g_object_set_property (G_OBJECT (entry), "editable", &gval);
-
-    gtk_widget_realize (entry);
-}
-
 /*************************************************************/
 
-/* This code is one big hack to use gtkrc to set cell colors in a
- * register.  Because the cells are just boxes drawn on a gnome
- * canvas, there's no way to specify the individual cells in a gtkrc
- * file.  This code creates four hidden GtkEntry widgets and names
- * them so that they *can* be specified in gtkrc.  It then looks up
- * the colors specified on these hidden widgets and uses it for the
- * cells drawn on the canvas.  This code should all go away whenever
- * the register is rewritten.
- */
-
-static void
-gnc_style_context_get_background_color (GtkStyleContext *context,
-                                        GtkStateFlags    state,
-                                        GdkRGBA         *color)
+/** Map a cell color type to a css style class. */
+void
+gnucash_get_style_classes (GnucashSheet *sheet, GtkStyleContext *stylectxt,
+                           RegisterColor field_type)
 {
-    GdkRGBA *c;
+    gchar *full_class, *style_class = NULL;
 
-    g_return_if_fail (color != NULL);
-    g_return_if_fail (GTK_IS_STYLE_CONTEXT (context));
-
-    gtk_style_context_get (context,
-                           state,
-                           GTK_STYLE_PROPERTY_BACKGROUND_COLOR, &c,
-                           NULL);
-    *color = *c;
-    gdk_rgba_free (c);
-}
-
-
-/** Map a cell type to a gtkrc specified color. */
-GdkRGBA *
-get_gtkrc_color (GnucashSheet *sheet,
-                 RegisterColor field_type)
-{
-    GtkWidget *widget = NULL;
-    GtkStyleContext *stylectxt;
-    GdkRGBA color;
+    if (field_type >= COLOR_NEGATIVE) // Require a Negative fg color
+    {
+        gtk_style_context_add_class (stylectxt, "negative-numbers");
+        field_type -= COLOR_NEGATIVE;
+    }
 
     switch (field_type)
     {
     default:
-        return gdk_rgba_copy (&gn_white);
+    case COLOR_UNDEFINED:
+        gtk_style_context_add_class (stylectxt, GTK_STYLE_CLASS_BACKGROUND);
+        return;
 
-    case COLOR_UNKNOWN_BG:
-        return gdk_rgba_copy (&gn_white);
-
-    case COLOR_UNKNOWN_FG:
-        return gdk_rgba_copy (&gn_black);
-
-    case COLOR_NEGATIVE:
-        return gdk_rgba_copy (&gn_red);  // FIXME shouldn't be hardcoded...
-
-    case COLOR_HEADER_BG:
-    case COLOR_HEADER_FG:
-        widget = sheet->header_color;
+    case COLOR_HEADER:
+        style_class = "header";
         break;
 
-    case COLOR_PRIMARY_BG:
-    case COLOR_PRIMARY_BG_ACTIVE:
-    case COLOR_PRIMARY_FG:
-    case COLOR_PRIMARY_FG_ACTIVE:
-        widget = sheet->primary_color;
+    case COLOR_PRIMARY:
+        style_class = "primary";
         break;
 
-    case COLOR_SECONDARY_BG:
-    case COLOR_SECONDARY_BG_ACTIVE:
-    case COLOR_SECONDARY_FG:
-    case COLOR_SECONDARY_FG_ACTIVE:
-        widget = sheet->secondary_color;
+    case COLOR_PRIMARY_ACTIVE:
+    case COLOR_SECONDARY_ACTIVE:
+    case COLOR_SPLIT_ACTIVE:
+        gtk_style_context_set_state (stylectxt, GTK_STATE_FLAG_SELECTED);
+        style_class = "cursor";
         break;
 
-    case COLOR_SPLIT_BG:
-    case COLOR_SPLIT_BG_ACTIVE:
-    case COLOR_SPLIT_FG:
-    case COLOR_SPLIT_FG_ACTIVE:
-        widget = sheet->split_color;
+    case COLOR_SECONDARY:
+        style_class = "secondary";
+        break;
+
+    case COLOR_SPLIT:
+        style_class = "split";
         break;
     }
 
-    stylectxt = gtk_widget_get_style_context (widget);
-    if (!stylectxt)
-        return gdk_rgba_copy (&gn_white);
-
-    switch (field_type)
+    if (sheet->use_theme_colors)
     {
-    default:
-        return gdk_rgba_copy (&gn_white);
-
-    case COLOR_HEADER_BG:
-    case COLOR_PRIMARY_BG:
-    case COLOR_SECONDARY_BG:
-    case COLOR_SPLIT_BG:
-        gnc_style_context_get_background_color(stylectxt, GTK_STATE_FLAG_NORMAL, &color);
-        break;
-
-    case COLOR_PRIMARY_BG_ACTIVE:
-    case COLOR_SECONDARY_BG_ACTIVE:
-    case COLOR_SPLIT_BG_ACTIVE:
-        gnc_style_context_get_background_color(stylectxt, GTK_STATE_FLAG_SELECTED, &color);
-        break;
-
-    case COLOR_HEADER_FG:
-    case COLOR_PRIMARY_FG:
-    case COLOR_SECONDARY_FG:
-    case COLOR_SPLIT_FG:
-        gtk_style_context_get_color(stylectxt, GTK_STATE_FLAG_NORMAL, &color);
-        break;
-
-    case COLOR_PRIMARY_FG_ACTIVE:
-    case COLOR_SECONDARY_FG_ACTIVE:
-    case COLOR_SPLIT_FG_ACTIVE:
-        gtk_style_context_get_color(stylectxt, GTK_STATE_FLAG_SELECTED, &color);
-        break;
+        gtk_style_context_add_class (stylectxt, GTK_STYLE_CLASS_VIEW);
+        full_class = g_strconcat (style_class, "-color", NULL);
     }
+    else
+        full_class = g_strconcat ("register-", style_class, NULL);
 
-    return gdk_rgba_copy (&color);
-}
+    gtk_style_context_add_class (stylectxt, full_class);
 
-/** Create the entries used for nameing register colors in gtkrc. */
-static void
-gnucash_sheet_create_color_hack(GnucashSheet *sheet)
-{
-    sheet->header_color    = gtk_entry_new();
-    sheet->primary_color   = gtk_entry_new();
-    sheet->secondary_color = gtk_entry_new();
-    sheet->split_color     = gtk_entry_new();
-
-    gtk_widget_set_name(sheet->header_color,    "header_color");
-    gtk_widget_set_name(sheet->primary_color,   "primary_color");
-    gtk_widget_set_name(sheet->secondary_color, "secondary_color");
-    gtk_widget_set_name(sheet->split_color,     "split_color");
-
-    g_signal_connect_after(sheet, "realize",
-                           G_CALLBACK(gnucash_sheet_realize_entry),
-                           sheet->header_color);
-    g_signal_connect_after(sheet, "realize",
-                           G_CALLBACK(gnucash_sheet_realize_entry),
-                           sheet->primary_color);
-    g_signal_connect_after(sheet, "realize",
-                           G_CALLBACK(gnucash_sheet_realize_entry),
-                           sheet->secondary_color);
-    g_signal_connect_after(sheet, "realize",
-                           G_CALLBACK(gnucash_sheet_realize_entry),
-                           sheet->split_color);
+    g_free (full_class);
 }
 
 /*************************************************************/
@@ -2495,8 +2514,8 @@ gnucash_sheet_class_init (GnucashSheetClass *klass)
 
     widget_class->key_press_event = gnucash_sheet_key_press_event;
     widget_class->key_release_event = gnucash_sheet_key_release_event;
-    widget_class->button_press_event = gnucash_button_press_event;
-    widget_class->button_release_event = gnucash_button_release_event;
+    widget_class->button_press_event = gnucash_sheet_button_press_event;
+    widget_class->button_release_event = gnucash_sheet_button_release_event;
     widget_class->scroll_event = gnucash_scroll_event;
 }
 
@@ -2569,13 +2588,13 @@ gnucash_sheet_get_type (void)
         static const GTypeInfo gnucash_sheet_info =
         {
             sizeof (GnucashSheetClass),
-            NULL,		/* base_init */
-            NULL,		/* base_finalize */
+            NULL,       /* base_init */
+            NULL,       /* base_finalize */
             (GClassInitFunc) gnucash_sheet_class_init,
-            NULL,		/* class_finalize */
-            NULL,		/* class_data */
+            NULL,       /* class_finalize */
+            NULL,       /* class_data */
             sizeof (GnucashSheet),
-            0,		/* n_preallocs */
+            0,      /* n_preallocs */
             (GInstanceInitFunc) gnucash_sheet_init
         };
 
@@ -2600,8 +2619,6 @@ gnucash_sheet_new (Table *table)
     /* The cursor */
     sheet->cursor = gnucash_cursor_new (sheet);
 
-    /*gtk_layout_put (GTK_LAYOUT (sheet), sheet->entry, 0, 0);*/
-
     /* set up the editor */
     sheet->item_editor = gnc_item_edit_new(sheet);
 
@@ -2611,7 +2628,6 @@ gnucash_sheet_new (Table *table)
                                    g_free, NULL);
 
     gnucash_sheet_refresh_from_prefs(sheet);
-    gnucash_sheet_create_color_hack(sheet);
 
     return GTK_WIDGET(sheet);
 }

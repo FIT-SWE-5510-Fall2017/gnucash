@@ -21,12 +21,9 @@
  *                                                                  *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <glib/gi18n.h>
-#ifdef HAVE_X11_XLIB_H
-# include <X11/Xlib.h>
-#endif
 #include <libxml/xmlIO.h>
 
 #include "gnc-prefs-utils.h"
@@ -169,41 +166,70 @@ gnc_configure_date_completion (void)
     qof_date_completion_set(dc, backmonths);
 }
 
+/* This function was copied from GTK3.22 as it was only introduced in
+ * version 3.16 */
+#if !GTK_CHECK_VERSION(3,16,0)
+static void
+gtk_css_provider_load_from_resource (GtkCssProvider *css_provider,
+                                     const gchar *resource_path)
+{
+  GFile *file;
+  gchar *uri, *escaped;
+
+  g_return_if_fail (GTK_IS_CSS_PROVIDER (css_provider));
+  g_return_if_fail (resource_path != NULL);
+
+  escaped = g_uri_escape_string (resource_path,
+                  G_URI_RESERVED_CHARS_ALLOWED_IN_PATH, FALSE);
+  uri = g_strconcat ("resource://", escaped, NULL);
+  g_free (escaped);
+
+  file = g_file_new_for_uri (uri);
+  g_free (uri);
+
+  gtk_css_provider_load_from_file (css_provider, file, NULL);
+
+  g_object_unref (file);
+}
+#endif
+
 void
 gnc_add_css_file (void)
 {
-    GtkCssProvider *provider_user, *provider_app;
+    GtkCssProvider *provider_user, *provider_app, *provider_fallback;
     GdkDisplay *display;
     GdkScreen *screen;
     const gchar *var;
-    gchar* pkgdatadir = gnc_path_get_pkgdatadir ();
-    gchar *str;
     GError *error = 0;
 
     provider_user = gtk_css_provider_new ();
     provider_app = gtk_css_provider_new ();
+    provider_fallback = gtk_css_provider_new ();
     display = gdk_display_get_default ();
     screen = gdk_display_get_default_screen (display);
+
+    gtk_style_context_add_provider_for_screen (screen, GTK_STYLE_PROVIDER (provider_fallback), GTK_STYLE_PROVIDER_PRIORITY_FALLBACK);
     gtk_style_context_add_provider_for_screen (screen, GTK_STYLE_PROVIDER (provider_app), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
     gtk_style_context_add_provider_for_screen (screen, GTK_STYLE_PROVIDER (provider_user), GTK_STYLE_PROVIDER_PRIORITY_USER);
 
-    if (pkgdatadir)
-    {
-        str = g_build_filename (pkgdatadir, "ui", "gnucash.css", (char *)NULL);
-        gtk_css_provider_load_from_path (provider_app, str, &error);
-        g_free (str);
-    }
-    g_free (pkgdatadir);
+#if GTK_CHECK_VERSION(3,20,0)
+    gtk_css_provider_load_from_resource (provider_app, "/org/gnucash/gnucash-320.css");
+#else
+    gtk_css_provider_load_from_resource (provider_app, "/org/gnucash/gnucash-310.css");
+#endif
+    gtk_css_provider_load_from_resource (provider_fallback,  "/org/gnucash/gnucash-fallback-310.css");
 
     var = g_get_home_dir ();
     if (var)
     {
+        gchar *str;
         str = g_build_filename (var, ".gtk-3.0-gnucash.css", (char *)NULL);
         gtk_css_provider_load_from_path (provider_user, str, &error);
         g_free (str);
     }
     g_object_unref (provider_user);
     g_object_unref (provider_app);
+    g_object_unref (provider_fallback);
 }
 
 #ifdef MAC_INTEGRATION
@@ -611,28 +637,6 @@ gnc_ui_check_events (gpointer not_used)
     return TRUE;
 }
 
-#ifdef HAVE_X11_XLIB_H
-static int
-gnc_x_error (Display *display, XErrorEvent *error)
-{
-    if (error->error_code)
-    {
-        char buf[64];
-
-        XGetErrorText (display, error->error_code, buf, 63);
-
-        g_warning ("X-ERROR **: %s\n  serial %ld error_code %d "
-                   "request_code %d minor_code %d\n",
-                   buf,
-                   error->serial,
-                   error->error_code,
-                   error->request_code,
-                   error->minor_code);
-    }
-
-    return 0;
-}
-#endif
 
 int
 gnc_ui_start_event_loop (void)
@@ -643,10 +647,6 @@ gnc_ui_start_event_loop (void)
 
     id = g_timeout_add_full (G_PRIORITY_DEFAULT_IDLE, 10000, /* 10 secs */
                              gnc_ui_check_events, NULL, NULL);
-
-#ifdef HAVE_X11_XLIB_H
-    XSetErrorHandler (gnc_x_error);
-#endif
 
     /* Enter gnome event loop */
     gtk_main ();

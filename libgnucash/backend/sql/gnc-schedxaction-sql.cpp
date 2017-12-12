@@ -27,7 +27,7 @@
  */
 extern "C"
 {
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 
@@ -85,7 +85,7 @@ static const EntryVec col_table
 });
 
 GncSqlSchedXactionBackend::GncSqlSchedXactionBackend() :
-    GncSqlObjectBackend(GNC_SQL_BACKEND_VERSION, GNC_ID_SCHEDXACTION,
+    GncSqlObjectBackend(TABLE_VERSION, GNC_ID_SCHEDXACTION,
                         SCHEDXACTION_TABLE, col_table) {}
 
 /* ================================================================= */

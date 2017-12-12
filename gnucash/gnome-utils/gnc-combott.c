@@ -27,7 +27,7 @@
  * 51 Franklin Street, Fifth Floor    Fax:    +1-617-542-2652       *
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
-#include "config.h"
+#include <config.h>
 #include <gtk/gtk.h>
 #include "gnc-combott.h"
 #include <strings.h>
@@ -228,6 +228,9 @@ gctt_init (GncCombott *combott)
     gtk_box_set_homogeneous (GTK_BOX(hbox), FALSE);
 
     arrow = gtk_image_new_from_icon_name ("go-down", GTK_ICON_SIZE_BUTTON);
+
+    g_signal_connect (G_OBJECT (arrow), "draw",
+                      G_CALLBACK (gnc_draw_arrow_cb), GINT_TO_POINTER(1));
 
 #if GTK_CHECK_VERSION(3,12,0)
     gtk_widget_set_margin_start (GTK_WIDGET(arrow), 5);

@@ -20,7 +20,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -60,7 +60,7 @@ gnc_show_splash_screen (void)
     GtkWidget *hbox;
     GtkWidget *version;
     GtkWidget *separator;
-    gchar *ver_string, *markup;
+    gchar *ver_string, *markup, *vcs;
 
     if (splash) return;
     if (!gnc_prefs_get_bool(GNC_PREFS_GROUP_GENERAL, GNC_PREF_SHOW_SPLASH)) return;
@@ -93,23 +93,22 @@ gnc_show_splash_screen (void)
     gtk_box_set_homogeneous (GTK_BOX (vbox), FALSE);
     hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 3);
     gtk_box_set_homogeneous (GTK_BOX (hbox), FALSE);
-#ifdef GNUCASH_SCM
-    /* Development version */
-    /* Translators: 1st %s is the GnuCash version (eg 2.4.11);
-                    2nd %s is the scm type (svn/svk/git/bzr);
-                    3rd %s is the scm revision number;
-                    4th %s is the build date */
-    ver_string = g_strdup_printf(_("Version: GnuCash-%s %s (rev %s built %s)"),
-                                 VERSION, GNUCASH_SCM, GNUCASH_SCM_REV,
-                                 GNUCASH_BUILD_DATE);
+
+#ifdef GNC_VCS
+    vcs = GNC_VCS " ";
 #else
-    /* Dist Tarball */
-    /* Translators: 1st %s is the GnuCash version (eg 2.4.11);
-                    2nd %s is the scm (svn/svk/git/bzr) revision number;
-                    3rd %s is the build date */
-    ver_string = g_strdup_printf(_("Version: GnuCash-%s (rev %s built %s)"),
-                                 VERSION, GNUCASH_SCM_REV, GNUCASH_BUILD_DATE);
+    vcs = "";
 #endif
+
+    /* Allow builder to override the build id (eg distributions may want to
+     * print an package source version number (rpm, dpkg,...) instead of our git ref */
+    if (g_strcmp0("", GNUCASH_BUILD_ID) != 0)
+        ver_string = g_strdup_printf("%s: %s, %s: %s", _("Version"),
+                                     VERSION, _("Build ID"), GNUCASH_BUILD_ID);
+    else
+        ver_string = g_strdup_printf("%s: %s, %s: %s%s (%s)", _("Version"),
+                                     VERSION, _("Build ID"), vcs, GNC_VCS_REV,
+                                     GNC_VCS_REV_DATE);
 
     version = gtk_label_new(NULL);
     markup = g_markup_printf_escaped(MARKUP_STRING, ver_string);
@@ -206,4 +205,9 @@ gnc_update_splash_screen (const gchar *string, double percentage)
         while (gtk_events_pending ())
             gtk_main_iteration ();
     }
+}
+
+GtkWindow *gnc_get_splash_screen (void)
+{
+    return GTK_WINDOW(splash);
 }

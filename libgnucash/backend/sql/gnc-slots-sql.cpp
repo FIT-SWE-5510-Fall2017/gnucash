@@ -28,7 +28,7 @@
 #include <guid.hpp>
 extern "C"
 {
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 
@@ -54,7 +54,7 @@ extern "C"
 static QofLogModule log_module = G_LOG_DOMAIN;
 
 #define TABLE_NAME "slots"
-#define TABLE_VERSION 3
+#define TABLE_VERSION 4
 
 typedef enum
 {
@@ -180,7 +180,7 @@ static const EntryVec gdate_col_table
 };
 
 GncSqlSlotsBackend::GncSqlSlotsBackend() :
-    GncSqlObjectBackend(GNC_SQL_BACKEND_VERSION, GNC_ID_ACCOUNT,
+    GncSqlObjectBackend(TABLE_VERSION, GNC_ID_ACCOUNT,
                         TABLE_NAME, col_table) {}
 
 /* ================================================================= */
@@ -711,8 +711,8 @@ gnc_sql_slots_delete (GncSqlBackend* sql_be, const GncGUID* guid)
                     col_table[guid_val_col];
                 GncGUID child_guid;
                 auto val = row.get_string_at_col (table_row->name());
-                (void)string_to_guid (val.c_str(), &child_guid);
-                gnc_sql_slots_delete (sql_be, &child_guid);
+                if (string_to_guid (val.c_str(), &child_guid))
+                    gnc_sql_slots_delete (sql_be, &child_guid);
             }
             catch (std::invalid_argument)
             {
@@ -889,7 +889,7 @@ load_slot_for_book_object (GncSqlBackend* sql_be, GncSqlRow& row,
     guid = load_obj_guid (sql_be, row);
     g_return_if_fail (guid != NULL);
     inst = lookup_fn (guid, sql_be->book());
-    g_return_if_fail (inst != NULL);
+    if (inst == NULL) return; /* Silently bail if the guid isn't loaded yet. */
 
     slot_info.be = sql_be;
     slot_info.pKvpFrame = qof_instance_get_slots (inst);
@@ -958,11 +958,12 @@ GncSqlSlotsBackend::create_tables (GncSqlBackend* sql_be)
             PERR ("Unable to create index\n");
         }
     }
-    else if (version < TABLE_VERSION)
+    else if (version < m_version)
     {
         /* Upgrade:
             1->2: 64-bit int values to proper definition, add index
             2->3: Add gdate field
+            3->4: Use DATETIME instead of TIMESTAMP in MySQL
         */
         if (version == 1)
         {
@@ -981,6 +982,10 @@ GncSqlSlotsBackend::create_tables (GncSqlBackend* sql_be)
             {
                 PERR ("Unable to add gdate column\n");
             }
+        }
+        else
+        {
+            sql_be->upgrade_table(TABLE_NAME, col_table);
         }
         sql_be->set_table_version (TABLE_NAME, TABLE_VERSION);
         PINFO ("Slots table upgraded from version %d to version %d\n", version,

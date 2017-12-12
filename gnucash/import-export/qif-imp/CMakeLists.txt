@@ -25,10 +25,14 @@ TARGET_LINK_LIBRARIES(gncmod-qif-import gncmod-app-utils gncmod-gnome-utils gnc-
 
 TARGET_COMPILE_DEFINITIONS(gncmod-qif-import PRIVATE -DG_LOG_DOMAIN=\"gnc.import.qif.import\")
 
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-qif-import PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
+
 INSTALL(TARGETS gncmod-qif-import
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # No headers to install.
 
 
@@ -50,17 +54,11 @@ SET(qif_import_SCHEME_2
   qif-import.scm
 )
 
-SET(GUILE_MODULES      "")
-SET(GUILE_LOAD_DIRS    libgnucash/core-utils libgnucash/gnc-module libgnucash/scm)
-SET(GUILE_LIBRARY_DIRS libgnucash/core-utils libgnucash/gnc-module gnucash/gnome)
 SET(GUILE_DEPENDS      gncmod-qif-import scm-core-utils scm-gnc-module scm-scm)
 
 GNC_ADD_SCHEME_TARGETS(scm-qif-import-2
   "${qif_import_SCHEME_2}"
   "gnucash/import-export"
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "${GUILE_DEPENDS}"
   FALSE
 )
@@ -68,20 +66,17 @@ GNC_ADD_SCHEME_TARGETS(scm-qif-import-2
 GNC_ADD_SCHEME_TARGETS(scm-qif-import
   "${qif_import_SCHEME}"
   "qif-import"
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "${GUILE_DEPENDS}"
   FALSE
 )
 
 SET(qif_import_GLADE assistant-qif-import.glade dialog-account-picker.glade)
 
-INSTALL(FILES ${qif_import_GLADE} DESTINATION share/gnucash/gtkbuilder)
+INSTALL(FILES ${qif_import_GLADE} DESTINATION ${CMAKE_INSTALL_DATADIR}/gnucash/gtkbuilder)
 
 SET(qif_import_UI gnc-plugin-qif-import-ui.xml)
 
-INSTALL(FILES ${qif_import_UI} DESTINATION share/gnucash/ui)
+INSTALL(FILES ${qif_import_UI} DESTINATION ${CMAKE_INSTALL_DATADIR}/gnucash/ui)
 
 FILE(COPY ${qif_import_UI}
   DESTINATION ${DATADIR_BUILD}/gnucash/ui)

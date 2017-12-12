@@ -32,12 +32,16 @@ TARGET_INCLUDE_DIRECTORIES (gncmod-report-system
 )
 
 
-INSTALL(TARGETS gncmod-report-system
-  LIBRARY DESTINATION lib/gnucash
-  ARCHIVE DESTINATION lib/gnucash
-  RUNTIME DESTINATION bin)
+IF (APPLE)
+  SET_TARGET_PROPERTIES (gncmod-report-system PROPERTIES INSTALL_NAME_DIR "${CMAKE_INSTALL_LIBDIR}/gnucash")
+ENDIF()
 
-INSTALL(FILES ${report_system_HEADERS} DESTINATION include/gnucash)
+INSTALL(TARGETS gncmod-report-system
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/gnucash
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+INSTALL(FILES ${report_system_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gnucash)
 
 # Scheme
 
@@ -74,19 +78,11 @@ SET (report_system_SCHEME_3
     report.scm
 )
 
-
-SET(GUILE_MODULES      libgnucash/app-utils libgnucash/engine gnucash/html gnucash/gnome-utils)
-SET(GUILE_LOAD_DIRS    libgnucash/app-utils libgnucash/core-utils libgnucash/engine libgnucash/gnc-module gnucash/gnome-utils gnucash/report/report-system libgnucash/scm)
-SET(GUILE_LIBRARY_DIRS libgnucash/app-utils libgnucash/core-utils libgnucash/engine libgnucash/gnc-module gnucash/gnome-utils)
 SET(GUILE_DEPENDS      gncmod-html gncmod-gnome-utils gncmod-report-system scm-app-utils scm-gnome-utils)
-
 
 GNC_ADD_SCHEME_TARGETS(scm-report-system
   "${report_system_SCHEME}"
   "gnucash/report"
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "${GUILE_DEPENDS}"
   FALSE
 )
@@ -94,9 +90,6 @@ GNC_ADD_SCHEME_TARGETS(scm-report-system
 GNC_ADD_SCHEME_TARGETS(scm-report-system-2
   "${report_system_SCHEME_2}"
   "gnucash/report/report-system"
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   scm-report-system
   FALSE
 )
@@ -104,9 +97,6 @@ GNC_ADD_SCHEME_TARGETS(scm-report-system-2
 GNC_ADD_SCHEME_TARGETS(scm-report-system-3
   "${report_system_SCHEME_3}"
   ""
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   scm-report-system-2
   FALSE
 )

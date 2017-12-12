@@ -32,7 +32,7 @@
  * Copyright (c) 2000 Dave Peticolas
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -345,77 +345,29 @@ gnc_table_get_label (Table *table, VirtualLocation virt_loc)
     return label;
 }
 
-static guint32
-gnc_table_get_fg_color_internal (Table *table, VirtualLocation virt_loc,
-                                 gboolean want_gtkrc)
-{
-    TableGetFGColorHandler fg_color_handler;
-    const char *handler_name = "gtkrc";
-
-    if (!table || !table->model)
-        return 0x0; /* black */
-
-    if (!want_gtkrc)
-        handler_name = gnc_table_get_cell_name (table, virt_loc);
-
-    fg_color_handler = gnc_table_model_get_fg_color_handler (table->model,
-                       handler_name);
-    if (!fg_color_handler)
-        return 0x0;
-
-    return fg_color_handler (virt_loc, table->model->handler_user_data);
-}
-
 guint32
-gnc_table_get_fg_color (Table *table, VirtualLocation virt_loc)
+gnc_table_get_color (Table *table, VirtualLocation virt_loc,
+                                 gboolean *hatching)
 {
-    return gnc_table_get_fg_color_internal (table, virt_loc, FALSE);
-}
-
-guint32
-gnc_table_get_gtkrc_fg_color (Table *table, VirtualLocation virt_loc)
-{
-    return gnc_table_get_fg_color_internal (table, virt_loc, TRUE);
-}
-
-static guint32
-gnc_table_get_bg_color_internal (Table *table, VirtualLocation virt_loc,
-                                 gboolean *hatching,
-                                 gboolean want_gtkrc)
-{
-    TableGetBGColorHandler bg_color_handler;
-    const char *handler_name = "gtkrc";
+    TableGetCellColorHandler color_handler;
+    const char *handler_name;
 
     if (hatching)
         *hatching = FALSE;
 
     if (!table || !table->model)
-        return 0xffffff; /* white */
+        return COLOR_UNDEFINED;
 
-    if (!want_gtkrc)
-        handler_name = gnc_table_get_cell_name (table, virt_loc);
+    handler_name = gnc_table_get_cell_name (table, virt_loc);
 
-    bg_color_handler = gnc_table_model_get_bg_color_handler (table->model,
-            handler_name);
-    if (!bg_color_handler)
-        return 0xffffff;
+    color_handler = gnc_table_model_get_cell_color_handler (table->model,
+                                                            handler_name);
 
-    return bg_color_handler (virt_loc, hatching,
-                             table->model->handler_user_data);
-}
+    if (!color_handler)
+        return COLOR_UNDEFINED;
 
-guint32
-gnc_table_get_bg_color (Table *table, VirtualLocation virt_loc,
-                        gboolean *hatching)
-{
-    return gnc_table_get_bg_color_internal (table, virt_loc, hatching, FALSE);
-}
-
-guint32
-gnc_table_get_gtkrc_bg_color (Table *table, VirtualLocation virt_loc,
-                              gboolean *hatching)
-{
-    return gnc_table_get_bg_color_internal (table, virt_loc, hatching, TRUE);
+    return color_handler (virt_loc, hatching,
+                          table->model->handler_user_data);
 }
 
 void

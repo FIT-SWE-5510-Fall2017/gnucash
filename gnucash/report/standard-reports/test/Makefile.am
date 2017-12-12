@@ -2,9 +2,14 @@ TESTS = $(SCM_TESTS)
 
 SCM_TESTS = \
 	test-cash-flow \
+	test-cashflow-barchart \
 	test-standard-category-report \
 	test-standard-net-barchart \
 	test-standard-net-linechart
+
+# test-generic-category-report.scm,test-generic-net-barchart, and
+# test-generic-net-linechart are support files used by the respective
+# test-standard-*
 
 SCM_TEST_SRCS = $(SCM_TESTS:%=%.scm)
 
@@ -29,6 +34,7 @@ GNC_TEST_DEPS = \
   --guile-load-dir ${top_builddir}/gnucash/report/report-system/test \
   --guile-load-dir ${top_builddir}/gnucash/report/standard-reports \
   --guile-load-dir ${top_builddir}/gnucash/report/standard-reports/test \
+  --guile-load-dir ${top_builddir}/gnucash/report/stylesheets \
 \
   --library-dir    ${top_builddir}/gnucash/report/report-system \
   --library-dir    ${top_builddir}/libgnucash/core-utils \

@@ -71,8 +71,9 @@ _gnucash_core_c_includes= \
 
 gnucash_core.c: $(SWIG_FILES) ${top_srcdir}/common/base-typemaps.i ${top_srcdir}/libgnucash/engine/engine-common.i $(_gnucash_core_c_includes)
 	$(SWIG) -python -Wall -Werror \
-	-I$(top_srcdir)/common -I$(top_srcdir)/libgnucash/engine \
-	-I$(top_srcdir)/libgnucash/app-utils -o $@ $<
+	-I$(GLIB_CFLAGS) -I$(top_srcdir)/common \
+	-I$(top_srcdir)/libgnucash/engine \
+	-I$(top_srcdir)/libgnucash/app-utils -I${srcdir} -o $@ $<
 
 gnucash_core_c.py: gnucash_core.c $(SWIG_FILES)
 endif
@@ -106,18 +107,25 @@ sqlite3test_SOURCES = sqlite3test.c
 sqlite3test_LDADD = ${_gnucash_core_c_la_LIBADD}
 sqlite3test_CPPFLAGS = ${_gnucash_core_c_la_CPPFLAGS}
 
-PYTHON_LINK_FILES = \
+PYTHON_GNUCASH_LINK_FILES = \
   $(pkgpyexec_DATA)
 
-.py-links:$(PYTHON_LINK_FILES)
+
+if BUILDING_FROM_VCS
+  PYTHON_LINK_FILES = $(filter-out gnucash_core_c.py,${PYTHON_GNUCASH_LINK_FILES})
+else
+  PYTHON_LINK_FILES = ${PYTHON_GNUCASH_LINK_FILES}
+endif
+
+.py-links:$(PYTHON_GNUCASH_LINK_FILES)
 	$(RM) -rf gnucash
 	mkdir -p gnucash
 if GNUCASH_SEPARATE_BUILDDIR
-	for X in $(filter-out gnucash_core_c.py,${PYTHON_LINK_FILES}) ; do \
-	  $(LN_S) -f ${srcdir}/$$X . ; \
+	for X in ${PYTHON_LINK_FILES} ; do \
+	    $(LN_S) -f ${srcdir}/$$X . ; \
 	done
 endif
-	( cd gnucash; for file in $(PYTHON_LINK_FILES) ; do \
+	( cd gnucash; for file in $(PYTHON_GNUCASH_LINK_FILES) ; do \
 	  $(LN_S) -f ../$$file .; \
 	  done )
 

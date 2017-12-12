@@ -22,7 +22,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
  ********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -157,9 +157,10 @@ gnc_style_sheet_dialog_create(StyleSheetDialog * ss,
     ss_info        * ssinfo = g_new0(ss_info, 1);
     GtkWidget      * window;
     gchar          * title;
+    GtkWindow      * parent = GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (ss->list_view)));
 
     title = g_strdup_printf(_("HTML Style Sheet Properties: %s"), name);
-    ssinfo->odialog = gnc_options_dialog_new(title);
+    ssinfo->odialog = gnc_options_dialog_new(title, parent);
     ssinfo->odb     = gnc_option_db_new(scm_options);
     ssinfo->stylesheet = sheet_info;
     ssinfo->row_ref    = row_ref;
@@ -253,7 +254,7 @@ gnc_style_sheet_new (StyleSheetDialog * ssd)
         {
             /* If the name is empty, we display an error dialog but
              * refuse to create the new style sheet. */
-            gnc_error_dialog (ssd->toplevel, "%s", _("You must provide a name for the new style sheet."));
+            gnc_error_dialog (GTK_WINDOW (ssd->toplevel), "%s", _("You must provide a name for the new style sheet."));
             name_str = NULL;
         }
         if (template_str && name_str)

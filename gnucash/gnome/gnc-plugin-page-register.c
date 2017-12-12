@@ -33,7 +33,7 @@
     @author Copyright (C) 2003,2005 David Hampton <hampton@employees.org>
 */
 
-#include "config.h"
+#include <config.h>
 
 #include <libguile.h>
 #include "guile-mappings.h"
@@ -48,6 +48,7 @@
 #include "gnc-plugin-register.h"
 #include "gnc-plugin-menu-additions.h"
 #include "gnc-plugin-page-report.h"
+#include "gnc-plugin-business.h"
 
 #include "dialog-account.h"
 #include "dialog-find-account.h"
@@ -391,7 +392,9 @@ static GtkActionEntry gnc_plugin_page_register_actions [] =
         G_CALLBACK (gnc_plugin_page_register_cmd_schedule)
     },
     {
-        "ScrubAllAction", NULL, N_("_All transactions"), NULL, NULL,
+        "ScrubAllAction", NULL,
+		/* Translators: The following 2 are Scrub actions in register view */
+		N_("_All transactions"), NULL, NULL,
         G_CALLBACK (gnc_plugin_page_register_cmd_scrub_all)
     },
     {
@@ -691,7 +694,8 @@ gnc_plugin_page_register_new (Account *account, gboolean subaccounts)
 
         if (guid_equal (xaccAccountGetGUID (account), xaccAccountGetGUID (new_account)))
         {
-            gnc_error_dialog (NULL, "%s",
+            GtkWindow *window = GTK_WINDOW (gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (new_register_page)));
+            gnc_error_dialog (window, "%s",
                          _("You have tried to open an account in the old register while it is open in the new register."));
             return NULL;
         }
@@ -821,6 +825,17 @@ gnc_plugin_page_register_get_account (GncPluginPageRegister *page)
     return NULL;
 }
 
+Transaction *
+gnc_plugin_page_register_get_current_txn (GncPluginPageRegister *page)
+{
+    GncPluginPageRegisterPrivate *priv;
+    SplitRegister *reg;
+
+    priv = GNC_PLUGIN_PAGE_REGISTER_GET_PRIVATE(page);
+    reg = gnc_ledger_display_get_split_register(priv->ledger);
+    return gnc_split_register_get_current_trans(reg);
+}
+
 /* This is the list of actions which are switched inactive in a read-only book. */
 static const char* readonly_inactive_actions[] =
 {
@@ -947,10 +962,9 @@ gnc_plugin_page_register_ui_update (gpointer various, GncPluginPageRegister *pag
     uri = xaccTransGetAssociation(trans);
     action = gnc_plugin_page_get_action (GNC_PLUGIN_PAGE(page),
                                          "ExecAssociatedTransactionAction");
-    if (g_strcmp0 (uri, "") != 0 && g_strcmp0 (uri, NULL) != 0)
-        gtk_action_set_sensitive (GTK_ACTION(action), TRUE);
-    else
-        gtk_action_set_sensitive (GTK_ACTION(action), FALSE);
+    gtk_action_set_sensitive (GTK_ACTION(action), (uri && *uri));
+
+    gnc_plugin_business_split_reg_ui_update (GNC_PLUGIN_PAGE(page));
 
     /* If we are in a readonly book, make any modifying action inactive */
     if (qof_book_is_readonly(gnc_get_current_book()))
@@ -1557,7 +1571,7 @@ gnc_plugin_page_register_finish_pending (GncPluginPage *page)
         return TRUE;
 
     name = gnc_plugin_page_register_get_tab_name(page);
-    window = gnc_plugin_page_get_window(page);
+    window = gnc_plugin_page_get_window (page);
     dialog = gtk_message_dialog_new(GTK_WINDOW(window),
                                     GTK_DIALOG_DESTROY_WITH_PARENT,
                                     GTK_MESSAGE_WARNING,
@@ -2789,7 +2803,7 @@ gnc_plugin_page_register_cmd_print_check (GtkAction *action,
     priv = GNC_PLUGIN_PAGE_REGISTER_GET_PRIVATE(plugin_page);
     reg = gnc_ledger_display_get_split_register (priv->ledger);
     ledger_type = gnc_ledger_display_type(priv->ledger);
-    window = gnc_plugin_page_get_window(GNC_PLUGIN_PAGE(plugin_page));
+    window = gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (plugin_page));
     if (ledger_type == LD_SINGLE || ledger_type == LD_SUBACCOUNT)
     {
         account  = gnc_plugin_page_register_get_account (plugin_page);
@@ -2866,7 +2880,7 @@ gnc_plugin_page_register_cmd_print_check (GtkAction *action,
     }
     else
     {
-        gnc_error_dialog(window, "%s",
+        gnc_error_dialog(GTK_WINDOW (window), "%s",
                          _("You can only print checks from a bank account register or search results."));
         LEAVE("Unsupported ledger type");
         return;
@@ -2944,8 +2958,7 @@ gnc_plugin_page_register_cmd_find_account (GtkAction *action,
 
     g_return_if_fail(GNC_IS_PLUGIN_PAGE_REGISTER(page));
 
-    window = gnc_plugin_page_get_window (GNC_PLUGIN_PAGE(page));
-
+    window = gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (page));
     gnc_find_account_dialog (window, NULL);
 }
 
@@ -3028,11 +3041,13 @@ gnc_plugin_page_register_cmd_void_transaction (GtkAction *action,
     GtkBuilder *builder;
     const char *reason;
     gint result;
+    GtkWindow *window;
 
     ENTER("(action %p, page %p)", action, page);
 
     g_return_if_fail(GNC_IS_PLUGIN_PAGE_REGISTER(page));
 
+    window = GTK_WINDOW (gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (page)));
     priv = GNC_PLUGIN_PAGE_REGISTER_GET_PRIVATE(page);
     reg = gnc_ledger_display_get_split_register(priv->ledger);
     trans = gnc_split_register_get_current_trans(reg);
@@ -3042,13 +3057,13 @@ gnc_plugin_page_register_cmd_void_transaction (GtkAction *action,
         return;
     if (xaccTransHasReconciledSplits(trans) || xaccTransHasSplitsInState(trans, CREC))
     {
-        gnc_error_dialog(NULL, "%s", _("You cannot void a transaction with reconciled or cleared splits."));
+        gnc_error_dialog (window, "%s", _("You cannot void a transaction with reconciled or cleared splits."));
         return;
     }
     reason = xaccTransGetReadOnly (trans);
     if (reason)
     {
-        gnc_error_dialog(NULL, _("This transaction is marked read-only with the comment: '%s'"), reason);
+        gnc_error_dialog(window, _("This transaction is marked read-only with the comment: '%s'"), reason);
         return;
     }
 
@@ -3118,7 +3133,7 @@ gnc_plugin_page_register_cmd_reverse_transaction (GtkAction *action,
 
     if (xaccTransGetReversedBy(trans))
     {
-        gnc_error_dialog(gnc_plugin_page_get_window(GNC_PLUGIN_PAGE(page)), "%s",
+        gnc_error_dialog(GTK_WINDOW (gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (page))), "%s",
                          _("A reversing entry has already been created for this transaction."));
         return;
     }
@@ -4142,7 +4157,7 @@ gnc_plugin_page_register_event_handler (QofInstance *entity,
     ENTER("entity %p of type %d, page %p, event data %p",
           entity, event_type, page, ed);
 
-    window = gnc_plugin_page_get_window(GNC_PLUGIN_PAGE(page));
+    window = gnc_plugin_page_get_window (GNC_PLUGIN_PAGE (page));
 
     if (GNC_IS_ACCOUNT(entity))
     {

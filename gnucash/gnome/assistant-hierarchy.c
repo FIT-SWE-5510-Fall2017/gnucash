@@ -22,7 +22,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <platform.h>
 #include <libguile.h>
@@ -1185,8 +1185,9 @@ assistant_insert_book_options_page (hierarchy_data *data)
 			   gnc_option_db_load, data->options);
     gnc_option_db_clean (data->options);
 
+    /* The options dialog gets added to the notebook so it doesn't need a parent.*/
     data->optionwin = gnc_options_dialog_new_modal (TRUE, _("New Book Options"),
-                                                DIALOG_BOOK_OPTIONS_CM_CLASS);
+                                                    DIALOG_BOOK_OPTIONS_CM_CLASS, NULL);
     gnc_options_dialog_build_contents_full (data->optionwin, data->options, FALSE);
 
     gnc_options_dialog_set_close_cb (data->optionwin,

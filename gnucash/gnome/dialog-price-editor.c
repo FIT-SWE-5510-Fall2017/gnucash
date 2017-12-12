@@ -24,7 +24,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -279,7 +279,7 @@ pedit_dialog_response_cb (GtkDialog *dialog, gint response, gpointer data)
         error_str = gui_to_price (pedit_dialog);
         if (error_str)
         {
-            gnc_warning_dialog (pedit_dialog->dialog, "%s", error_str);
+            gnc_warning_dialog (GTK_WINDOW (pedit_dialog->dialog), "%s", error_str);
             return;
         }
 

@@ -93,7 +93,6 @@ extern "C"
 
 #if LIBDBI_VERSION >= 900
 #define HAVE_LIBDBI_R 1
-#define HAVE_LIBDBI_TO_LONGLONG 1
 static dbi_inst dbi_instance = nullptr;
 #else
 #define HAVE_LIBDBI_R 0
@@ -253,8 +252,8 @@ GncDbiBackend<Type>::set_standard_connection_options (dbi_conn conn,
     return true;
 }
 
-template <DbType Type> void error_handler(void* conn, void* data);
-void error_handler(void* conn, void* data);
+template <DbType Type> void error_handler(dbi_conn conn, void* data);
+void error_handler(dbi_conn conn, void* data);
 
 template <DbType Type> dbi_conn
 GncDbiBackend<Type>::conn_setup (PairVec& options, UriStrings& uri)
@@ -361,7 +360,13 @@ error_handler<DbType::DBI_SQLITE> (dbi_conn conn, void* user_data)
     const char* msg;
     GncDbiBackend<DbType::DBI_SQLITE> *dbi_be =
         static_cast<decltype(dbi_be)>(user_data);
-    int errnum = dbi_conn_error (conn, &msg);
+    int err_num = dbi_conn_error (conn, &msg);
+    /* BADIDX is raised if we attempt to seek outside of a result. We
+     * handle that possibility after checking the return value of the
+     * seek. Having this raise a critical error breaks looping by
+     * testing for the return value of the seek.
+     */
+    if (err_num == DBI_ERROR_BADIDX) return;
     PERR ("DBI error: %s\n", msg);
     if (dbi_be->connected())
         dbi_be->set_dbi_error (ERR_BACKEND_MISC, 0, false);
@@ -478,6 +483,12 @@ error_handler<DbType::DBI_MYSQL> (dbi_conn conn, void* user_data)
     const char* msg;
 
     auto err_num = dbi_conn_error (conn, &msg);
+    /* BADIDX is raised if we attempt to seek outside of a result. We
+     * handle that possibility after checking the return value of the
+     * seek. Having this raise a critical error breaks looping by
+     * testing for the return value of the seek.
+     */
+    if (err_num == DBI_ERROR_BADIDX) return;
 
     /* Note: the sql connection may not have been initialized yet
      *       so let's be careful with using it
@@ -571,7 +582,7 @@ adjust_sql_options (dbi_conn connection)
 
     std::string adjusted_str{adjust_sql_options_string(str)};
     PINFO("Setting sql_mode to %s", adjusted_str.c_str());
-    std::string set_str{"SET sql_mode=" + std::move(adjusted_str)};
+    std::string set_str{"SET sql_mode='" + std::move(adjusted_str) + "'"};
     dbi_result set_result = dbi_conn_query(connection,
                                            set_str.c_str());
     if (set_result)
@@ -724,7 +735,13 @@ error_handler<DbType::DBI_PGSQL> (dbi_conn conn, void* user_data)
         static_cast<decltype(dbi_be)>(user_data);
     const char* msg;
 
-    (void)dbi_conn_error (conn, &msg);
+    auto err_num = dbi_conn_error (conn, &msg);
+    /* BADIDX is raised if we attempt to seek outside of a result. We
+     * handle that possibility after checking the return value of the
+     * seek. Having this raise a critical error breaks looping by
+     * testing for the return value of the seek.
+     */
+    if (err_num == DBI_ERROR_BADIDX) return;
     if (g_str_has_prefix (msg, "FATAL:  database") &&
         g_str_has_suffix (msg, "does not exist\n"))
     {

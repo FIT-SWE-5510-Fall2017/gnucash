@@ -66,10 +66,6 @@ struct _GnucashSheet
     gboolean   use_theme_colors;
     gboolean   use_horizontal_lines;
     gboolean   use_vertical_lines;
-    GtkWidget *header_color;
-    GtkWidget *primary_color;
-    GtkWidget *secondary_color;
-    GtkWidget *split_color;
 
     gboolean input_cancelled;
 
@@ -86,12 +82,14 @@ struct _GnucashSheet
 
     guint button; /* mouse button being held down */
     gboolean grabbed; /* has the grab */
+    gdouble button_x, button_y;
 
     guint insert_signal;
     guint delete_signal;
     guint changed_signal;
 
     GtkAdjustment *hadj, *vadj;
+    GtkWidget *hscrollbar, *vscrollbar;
 
     GFunc moved_cb;
     gpointer moved_cb_data;

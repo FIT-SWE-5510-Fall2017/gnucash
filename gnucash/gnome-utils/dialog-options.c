@@ -22,7 +22,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
@@ -834,7 +834,7 @@ gnc_option_changed_gain_loss_account_widget_cb (GtkTreeSelection *selection,
                         "the placeholder account by clicking on the arrow " \
                         "to the left.)");
 
-            gnc_error_dialog(NULL, "%s", message);
+            gnc_error_dialog (gnc_ui_get_gtk_window (book_currency_data->default_gain_loss_account_widget), "%s", message);
             if (book_currency_data->prior_gain_loss_account)
             {
                 (gnc_tree_view_account_set_selected_account
@@ -1693,6 +1693,11 @@ gnc_option_set_ui_widget(GNCOption *option,
         LEAVE("bad type");
         return;
     }
+    else if (g_strcmp0 (type, "internal") == 0)
+    {
+        LEAVE("internal type");
+        return;
+    }
 
     raw_name = gnc_option_name(option);
     if (raw_name && *raw_name)
@@ -2120,9 +2125,9 @@ refresh_handler (GHashTable *changes, gpointer user_data)
  *
  */
 GNCOptionWin *
-gnc_options_dialog_new(gchar *title)
+gnc_options_dialog_new(gchar *title, GtkWindow *parent)
 {
-    return gnc_options_dialog_new_modal(FALSE, title, NULL);
+    return gnc_options_dialog_new_modal(FALSE, title, NULL, parent);
 }
 
 /* gnc_options_dialog_new_modal:
@@ -2140,7 +2145,8 @@ gnc_options_dialog_new(gchar *title)
  */
 GNCOptionWin *
 gnc_options_dialog_new_modal(gboolean modal, gchar *title,
-                                                    const char *component_class)
+                             const char *component_class,
+                             GtkWindow *parent)
 {
     GNCOptionWin *retval;
     GtkBuilder   *builder;
@@ -2155,7 +2161,7 @@ gnc_options_dialog_new_modal(gboolean modal, gchar *title,
 
     // Set the style context for this dialog so it can be easily manipulated with css
     gnc_widget_set_style_context (GTK_WIDGET(retval->dialog), "GncOptionsDialog");
-
+    gtk_window_set_transient_for (GTK_WINDOW (retval->dialog), parent);
     /* Page List */
     {
         GtkTreeView *view;

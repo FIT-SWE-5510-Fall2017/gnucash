@@ -27,7 +27,7 @@
  * @author Copyright (C) 2008 Andreas Koehler <andi5.py@gmx.net>
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <glib/gi18n.h>
 #include <aqbanking/banking.h>
@@ -80,7 +80,7 @@ gnc_ab_getbalance(GtkWidget *parent, Account *gnc_acc)
     if (!ab_acc)
     {
         g_warning("gnc_ab_getbalance: No AqBanking account found");
-        gnc_error_dialog(parent, _("No valid online banking account assigned."));
+        gnc_error_dialog (GTK_WINDOW (parent), _("No valid online banking account assigned."));
         goto cleanup;
     }
 
@@ -94,7 +94,7 @@ gnc_ab_getbalance(GtkWidget *parent, Account *gnc_acc)
     {
         g_warning("gnc_ab_getbalance: JobGetBalance not available for this "
                   "account");
-        gnc_error_dialog(parent, _("Online action \"Get Balance\" not available for this account."));
+        gnc_error_dialog (GTK_WINDOW (parent), _("Online action \"Get Balance\" not available for this account."));
         goto cleanup;
     }
     job_list = AB_Job_List2_new();
@@ -127,9 +127,9 @@ gnc_ab_getbalance(GtkWidget *parent, Account *gnc_acc)
             && job_status != AB_Job_StatusPending)
     {
         g_warning("gnc_ab_getbalance: Error on executing job");
-        gnc_error_dialog(parent, _("Error on executing job.\n\nStatus: %s - %s")
-                         , AB_Job_Status2Char(job_status)
-                         , AB_Job_GetResultText(job));
+        gnc_error_dialog (GTK_WINDOW (parent), _("Error on executing job.\n\nStatus: %s - %s"),
+                          AB_Job_Status2Char(job_status),
+                          AB_Job_GetResultText(job));
         goto cleanup;
     }
 

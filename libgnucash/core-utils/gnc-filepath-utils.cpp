@@ -27,11 +27,12 @@
  */
 
 extern "C" {
-#include "config.h"
+#include <config.h>
 
 #include <platform.h>
 #if PLATFORM(WINDOWS)
 #include <windows.h>
+#include <Shlobj.h>
 #endif
 
 #include <glib.h>
@@ -54,11 +55,21 @@ extern "C" {
 
 #if defined (_MSC_VER) || defined (G_OS_WIN32)
 #include <glib/gwin32.h>
+#ifndef PATH_MAX
 #define PATH_MAX MAXPATHLEN
+#endif
+#endif
+#ifdef MAC_INTEGRATION
+#include <Foundation/Foundation.h>
 #endif
 }
 
 #include <boost/filesystem.hpp>
+
+#if PLATFORM(WINDOWS)
+#include <codecvt>
+#include <locale>
+#endif
 
 namespace bfs = boost::filesystem;
 namespace bst = boost::system;
@@ -180,6 +191,14 @@ gnc_resolve_file_path (const gchar * filefrag)
     g_warning("create new file %s", fullpath);
     return fullpath;
 
+}
+
+gchar *gnc_file_path_relative_part (const gchar *prefix, const gchar *path)
+{
+    std::string p{path};
+    if (p.find(prefix) == 0)
+        return g_strdup(p.substr(strlen(prefix)).c_str());
+    return g_strdup(path);
 }
 
 /* Searches for a file fragment paths set via GNC_DOC_PATH environment
@@ -311,7 +330,9 @@ gnc_validate_directory (const bfs::path &dirname, bool create)
         return false;
 
     if (!bfs::exists(dirname) && (!create))
-        return false;
+        throw (bfs::filesystem_error("", dirname,
+                bst::error_code(bst::errc::no_such_file_or_directory,
+                                bst::generic_category())));
 
     /* Optionally create directories if they don't exist yet
      * Note this will do nothing if the directory and its
@@ -327,10 +348,15 @@ gnc_validate_directory (const bfs::path &dirname, bool create)
     /* On Windows only write permission will be checked.
      * So strictly speaking we'd need two error messages here depending
      * on the platform. For simplicity this detail is glossed over though. */
-    if ((perms & bfs::owner_all) != bfs::owner_all)
+#if PLATFORM(WINDOWS)
+    auto check_perms = bfs::owner_read | bfs::owner_write;
+#else
+    auto check_perms = bfs::owner_all;
+#endif
+    if ((perms & check_perms) != check_perms)
         throw (bfs::filesystem_error(
             std::string(_("Insufficient permissions, at least write and access permissions required: "))
-            + dirname.c_str(), dirname,
+            + dirname.string(), dirname,
             bst::error_code(bst::errc::permission_denied, bst::generic_category())));
 
     return true;
@@ -370,8 +396,9 @@ copy_recursive(const bfs::path& src, const bfs::path& dest)
     catch(const bfs::filesystem_error& ex)
     {
         g_warning("An error occured while trying to migrate the user configation from\n%s to\n%s"
-                  "The reported failure is\n%s",
-                  src.c_str(), gnc_userdata_home.c_str(), ex.what());
+                  "(Error: %s)",
+                  src.string().c_str(), gnc_userdata_home.string().c_str(),
+                  ex.what());
         return false;
     }
 
@@ -384,30 +411,33 @@ copy_recursive(const bfs::path& src, const bfs::path& dest)
  * So this function is a copy of glib's internal get_special_folder
  * and minimally adjusted to fetch CSIDL_APPDATA
  */
-static gchar *
+static char *
 win32_get_userdata_home (void)
 {
     wchar_t path[MAX_PATH+1];
     HRESULT hr;
     LPITEMIDLIST pidl = NULL;
     BOOL b;
-    gchar *retval = NULL;
+    char *retval = NULL;
 
     hr = SHGetSpecialFolderLocation (NULL, CSIDL_APPDATA, &pidl);
     if (hr == S_OK)
     {
         b = SHGetPathFromIDListW (pidl, path);
         if (b)
-            retval = g_utf16_to_utf8 (path, -1, NULL, NULL, NULL);
+        {
+            std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8_conv;
+            retval = g_strdup(utf8_conv.to_bytes(path).c_str());
+        }
         CoTaskMemFree (pidl);
     }
     return retval;
 }
 #elif defined MAC_INTEGRATION
-static gchar*
+static char*
 quarz_get_userdata_home(void)
 {
-    gchar *retval = NULL;
+    char *retval = NULL;
     NSFileManager*fm = [NSFileManager defaultManager];
     NSArray* appSupportDir = [fm URLsForDirectory:NSApplicationSupportDirectory
     inDomains:NSUserDomainMask];
@@ -445,18 +475,15 @@ get_userdata_home(bool create)
     {
         try
         {
-            if (!gnc_validate_directory(userdata_home, create))
-                throw (bfs::filesystem_error(
-                    std::string(_("Directory doesn't exist: "))
-                    + userdata_home.c_str(), userdata_home,
-                    bst::error_code(bst::errc::permission_denied, bst::generic_category())));
+            gnc_validate_directory(userdata_home, create);  // May throw
             try_home_dir = false;
         }
         catch (const bfs::filesystem_error& ex)
         {
-            g_warning("%s is not a suitable base directory for the user data."
-            "Trying home directory instead.\nThe failure is\n%s",
-            userdata_home.c_str(), ex.what());
+            auto path_string = userdata_home.string();
+            g_warning("%s is not a suitable base directory for the user data. "
+            "Trying home directory instead.\n(Error: %s)",
+            path_string.c_str(), ex.what());
         }
     }
 
@@ -466,17 +493,13 @@ get_userdata_home(bool create)
         try
         {
             /* Never attempt to create a home directory, hence the false below */
-            if (!gnc_validate_directory(userdata_home, false))
-                throw (bfs::filesystem_error(
-                    std::string(_("Directory doesn't exist: "))
-                    + userdata_home.c_str(), userdata_home,
-                    bst::error_code(bst::errc::permission_denied, bst::generic_category())));
+            gnc_validate_directory(userdata_home, false);  // May throw
             userdata_is_home = true;
         }
         catch (const bfs::filesystem_error& ex)
         {
             g_warning("Cannot find suitable home directory. Using tmp directory instead.\n"
-            "The failure is\n%s", ex.what());
+            "(Error: %s)", ex.what());
             userdata_home = g_get_tmp_dir();
             userdata_is_tmp = true;
         }
@@ -489,6 +512,7 @@ get_userdata_home(bool create)
 gboolean
 gnc_filepath_init(gboolean create)
 {
+    userdata_is_home = userdata_is_tmp = false;
     auto gnc_userdata_home_exists = false;
     auto gnc_userdata_home_from_env = false;
     auto gnc_userdata_home_env = g_getenv("GNC_DATA_HOME");
@@ -498,18 +522,15 @@ gnc_filepath_init(gboolean create)
         try
         {
             gnc_userdata_home_exists = bfs::exists(gnc_userdata_home);
-            if (!gnc_validate_directory(gnc_userdata_home, create))
-                throw (bfs::filesystem_error(
-                    std::string(_("Directory doesn't exist: "))
-                    + userdata_home.c_str(), userdata_home,
-                    bst::error_code(bst::errc::permission_denied, bst::generic_category())));
+            gnc_validate_directory(gnc_userdata_home, create); // May throw
             gnc_userdata_home_from_env = true;
         }
         catch (const bfs::filesystem_error& ex)
         {
-            g_warning("%s (from environment variable 'GNC_DATA_HOME') is not a suitable directory for the user data."
-            "Trying the default instead.\nThe failure is\n%s",
-            gnc_userdata_home.c_str(), ex.what());
+            auto path_string = userdata_home.string();
+            g_warning("%s (from environment variable 'GNC_DATA_HOME') is not a suitable directory for the user data. "
+            "Trying the default instead.\n(Error: %s)",
+            path_string.c_str(), ex.what());
         }
     }
 
@@ -529,14 +550,33 @@ gnc_filepath_init(gboolean create)
             {
                 userdata_home = g_get_tmp_dir();
                 userdata_is_home = false;
+                userdata_is_tmp = true;
             }
         }
 
+        /* The fall back to the tmp dir is to accomodate for very restricted
+         * distribution build environments. In some such cases
+         * there is no home directory available, which would cause the build
+         * to fail (as this code is actually run while compiling guile scripts).
+         * This is worked around by continuing with a userdata directory
+         * in the temporary directory which always exists. */
         if (!userdata_is_home)
             gnc_userdata_home = userdata_home / PACKAGE_NAME;
         gnc_userdata_home_exists = bfs::exists(gnc_userdata_home);
-        /* This may throw and end the program! */
-        gnc_validate_directory(gnc_userdata_home, create);
+        /* This may throw and end the program!
+         * Note we always allow to create in the tmp_dir. This will
+         * skip migrating to that location in the next step but that's
+         * a good thing.
+         */
+        try
+        {
+            gnc_validate_directory(gnc_userdata_home, (create || userdata_is_tmp));
+        }
+        catch (const bfs::filesystem_error& ex)
+        {
+            g_warning("User data directory doesn't exist, yet the calling code requested not to create it. Proceed with caution.\n"
+            "(Error: %s)", ex.what());
+        }
     }
 
     auto migrated = FALSE;
@@ -544,11 +584,18 @@ gnc_filepath_init(gboolean create)
         migrated = copy_recursive(bfs::path (g_get_home_dir()) / ".gnucash",
                                   gnc_userdata_home);
 
-    /* Since we're in code that is only executed once....
-     * Note these calls may throw and end the program! */
-    gnc_validate_directory(gnc_userdata_home / "books", (create || userdata_is_tmp));
-    gnc_validate_directory(gnc_userdata_home / "checks", (create || userdata_is_tmp));
-    gnc_validate_directory(gnc_userdata_home / "translog", (create || userdata_is_tmp));
+    /* Try to create the standard subdirectories for gnucash' user data */
+    try
+    {
+        gnc_validate_directory(gnc_userdata_home / "books", (create || userdata_is_tmp));
+        gnc_validate_directory(gnc_userdata_home / "checks", (create || userdata_is_tmp));
+        gnc_validate_directory(gnc_userdata_home / "translog", (create || userdata_is_tmp));
+    }
+    catch (const bfs::filesystem_error& ex)
+    {
+        g_warning("Default user data subdirectories don't exist, yet the calling code requested not to create them. Proceed with caution.\n"
+        "(Error: %s)", ex.what());
+    }
 
     return migrated;
 }
@@ -597,7 +644,7 @@ gnc_userdata_dir (void)
     if (gnc_userdata_home.empty())
         gnc_filepath_init(false);
 
-    return gnc_userdata_home.c_str();
+    return gnc_userdata_home.string().c_str();
 }
 
 static const bfs::path&
@@ -627,7 +674,7 @@ gnc_userdata_dir_as_path (void)
 gchar *
 gnc_build_userdata_path (const gchar *filename)
 {
-    return g_strdup((gnc_userdata_dir_as_path() / filename).c_str());
+    return g_strdup((gnc_userdata_dir_as_path() / filename).string().c_str());
 }
 
 static bfs::path
@@ -653,7 +700,8 @@ gnc_build_userdata_subdir_path (const gchar *subdir, const gchar *filename)
 gchar *
 gnc_build_book_path (const gchar *filename)
 {
-    return g_strdup(gnc_build_userdata_subdir_path("books", filename).c_str());
+    auto path = gnc_build_userdata_subdir_path("books", filename).string();
+    return g_strdup(path.c_str());
 }
 
 /** @fn gchar * gnc_build_translog_path (const gchar *filename)
@@ -668,7 +716,8 @@ gnc_build_book_path (const gchar *filename)
 gchar *
 gnc_build_translog_path (const gchar *filename)
 {
-    return g_strdup(gnc_build_userdata_subdir_path("translog", filename).c_str());
+    auto path = gnc_build_userdata_subdir_path("translog", filename).string();
+    return g_strdup(path.c_str());
 }
 
 /** @fn gchar * gnc_build_data_path (const gchar *filename)
@@ -683,7 +732,8 @@ gnc_build_translog_path (const gchar *filename)
 gchar *
 gnc_build_data_path (const gchar *filename)
 {
-    return g_strdup(gnc_build_userdata_subdir_path("data", filename).c_str());
+    auto path = gnc_build_userdata_subdir_path("data", filename).string();
+    return g_strdup(path.c_str());
 }
 
 /** @fn gchar * gnc_build_report_path (const gchar *filename)

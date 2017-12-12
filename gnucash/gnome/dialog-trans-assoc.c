@@ -20,7 +20,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -272,7 +272,8 @@ row_selected_cb (GtkTreeView *view, GtkTreePath *path,
             g_free (uri_scheme);
         }
         else
-            gnc_error_dialog (NULL, "%s", _("This transaction is not associated with a valid URI."));
+            gnc_error_dialog (gnc_ui_get_gtk_window(GTK_WIDGET (view)),
+                              "%s", _("This transaction is not associated with a valid URI."));
     }
 
     // Open transaction

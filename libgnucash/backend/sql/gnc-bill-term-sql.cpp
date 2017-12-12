@@ -30,7 +30,7 @@
 #include <guid.hpp>
 extern "C"
 {
-#include "config.h"
+#include <config.h>
 
 #include <glib.h>
 #include <stdlib.h>
@@ -98,12 +98,12 @@ static EntryVec col_table
 
 static EntryVec billterm_parent_col_table
 {
-    gnc_sql_make_table_entry<CT_INT64>("parent", 0, 0, nullptr,
+    gnc_sql_make_table_entry<CT_GUID>("parent", 0, 0, nullptr,
                                        bt_set_parent_guid),
 };
 
 GncSqlBillTermBackend::GncSqlBillTermBackend() :
-        GncSqlObjectBackend(GNC_SQL_BACKEND_VERSION, GNC_ID_BILLTERM,
+        GncSqlObjectBackend(TABLE_VERSION, GNC_ID_BILLTERM,
                             TABLE_NAME, col_table) {}
 
 struct BillTermParentGuid
@@ -212,7 +212,7 @@ load_single_billterm (GncSqlBackend* sql_be, GncSqlRow& row,
 
         s.billterm = pBillTerm;
         s.have_guid = false;
-        gnc_sql_load_object (sql_be, row, GNC_ID_TAXTABLE, &s,
+        gnc_sql_load_object (sql_be, row, GNC_ID_BILLTERM, &s,
                              billterm_parent_col_table);
         if (s.have_guid)
             l_billterms_needing_parents.push_back(new BillTermParentGuid(s));
@@ -315,7 +315,7 @@ GncSqlBillTermBackend::create_tables (GncSqlBackend* sql_be)
     {
         sql_be->create_table(TABLE_NAME, TABLE_VERSION, col_table);
     }
-    else if (version == 1)
+    else if (version < m_version)
     {
         /* Upgrade 64 bit int handling */
         sql_be->upgrade_table(TABLE_NAME, col_table);

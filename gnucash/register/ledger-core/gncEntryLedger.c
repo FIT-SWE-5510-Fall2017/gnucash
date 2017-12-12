@@ -21,7 +21,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -96,7 +96,7 @@ gnc_entry_ledger_get_account_by_name (GncEntryLedger *ledger, BasicCell * bcell,
     if (!account)
     {
         /* Ask if they want to create a new one. */
-        if (!gnc_verify_dialog (ledger->parent, TRUE, missing, name))
+        if (!gnc_verify_dialog (GTK_WINDOW (ledger->parent), TRUE, missing, name))
             return NULL;
 
         /* No changes, as yet. */
@@ -127,7 +127,7 @@ gnc_entry_ledger_get_account_by_name (GncEntryLedger *ledger, BasicCell * bcell,
     /* See if the account (either old or new) is a placeholder. */
     if (xaccAccountGetPlaceholder (account))
     {
-        gnc_error_dialog (ledger->parent, placeholder, name);
+        gnc_error_dialog (GTK_WINDOW (ledger->parent), placeholder, name);
     }
 
     /* Be seeing you. */

@@ -21,7 +21,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
 \********************************************************************/
 
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -398,7 +398,7 @@ calc_value(FinCalcDialog *fcd, FinCalcValue value)
     {
         GtkWidget *entry;
 
-        gnc_error_dialog(fcd->dialog, "%s", string);
+        gnc_error_dialog (GTK_WINDOW (fcd->dialog), "%s", string);
         if (error_item == 0)
             entry = fcd->amounts[0];
         else

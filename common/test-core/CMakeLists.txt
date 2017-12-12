@@ -36,6 +36,7 @@ IF (BUILDING_FROM_VCS)
 ELSE()
   SET (SWIG_UNITTEST_SUPPORT_GUILE_C  swig-unittest-support-guile.c)
   SET (SWIG_UNITTEST_SUPPORT_PYTHON_C swig-unittest-support-python.c)
+  FILE(COPY unittest_support.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 ENDIF()
 
 
@@ -52,18 +53,12 @@ ENDIF()
 SET(test_core_SCHEME unittest-support.scm)
 
 SET(GUILE_OUTPUT_DIR   gnucash)
-SET(GUILE_MODULES      "")
-SET(GUILE_LOAD_DIRS    "")
-SET(GUILE_LIBRARY_DIRS common/test-core libgnucash/engine)
 SET(GUILE_DEPENDS      test-core-guile)
 
 
 GNC_ADD_SCHEME_TARGETS(scm-test-core
   ${test_core_SCHEME}
   ${GUILE_OUTPUT_DIR}
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
   "${GUILE_DEPENDS}"
   FALSE
   )
@@ -78,4 +73,3 @@ ADD_LIBRARY(gmock STATIC  ${lib_gmock_SOURCES})
 TARGET_INCLUDE_DIRECTORIES(gmock PUBLIC
   ${GTEST_INCLUDE_DIR} ${GTEST_SRC_DIR}
   ${GMOCK_INCLUDE_DIR} ${GMOCK_SRC_DIR})
-INSTALL(FILES unittest-support.h DESTINATION libexec/gnucash/libgnucash/engine/test)

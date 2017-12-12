@@ -26,7 +26,7 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *************************************************************************/
-#include "config.h"
+#include <config.h>
 
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
@@ -110,6 +110,9 @@ gnc_popup_entry_init (GncPopupEntry *widget)
 
     arrow = gtk_image_new_from_icon_name ("go-down", GTK_ICON_SIZE_BUTTON);
     gtk_widget_show (arrow);
+
+    g_signal_connect (G_OBJECT (arrow), "draw",
+                      G_CALLBACK (gnc_draw_arrow_cb), GINT_TO_POINTER(1));
 
     gtk_container_add (GTK_CONTAINER (widget->button), arrow);
 

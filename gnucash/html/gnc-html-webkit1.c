@@ -23,7 +23,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org                   *
  ********************************************************************/
 
-#include "config.h"
+#include <config.h>
 #include "platform.h"
 
 #include <gtk/gtk.h>
@@ -88,6 +88,13 @@ static WebKitNavigationResponse webkit_navigation_requested_cb(
     WebKitWebFrame* frame,
     WebKitNetworkRequest* request,
     gpointer user_data );
+static gboolean webkit_on_load_error (WebKitWebView *web_view,
+                                      WebKitWebFrame *web_frame, gchar *uri,
+                                      GError *error, gpointer data);
+static void webkit_resource_load_error (WebKitWebView *web_view,
+                                        WebKitWebFrame *web_frame,
+                                        WebKitWebResource *resource,
+                                        GError *error, gpointer data);
 static void webkit_on_url_cb( WebKitWebView* web_view, gchar* title, gchar* url,
                               gpointer data );
 static gchar* handle_embedded_object( GncHtmlWebkit* self, gchar* html_str );
@@ -118,9 +125,10 @@ gnc_html_webkit_init( GncHtmlWebkit* self )
 {
     GncHtmlWebkitPrivate* priv;
     GncHtmlWebkitPrivate* new_priv;
-
+    GtkStyleContext *stylecontext;
     WebKitWebSettings* webkit_settings = NULL;
     const char* default_font_family = NULL;
+    PangoFontDescription *font_desc;
     gdouble zoom = 1.0;
 
     new_priv = g_realloc( GNC_HTML(self)->priv, sizeof(GncHtmlWebkitPrivate) );
@@ -130,9 +138,13 @@ gnc_html_webkit_init( GncHtmlWebkit* self )
     priv->html_string = NULL;
     priv->web_view = WEBKIT_WEB_VIEW(webkit_web_view_new());
 
+    /* Get the default font family from GtkStyleContext of a GtkWidget(priv->web_view). */
+    stylecontext = gtk_widget_get_style_context (GTK_WIDGET(priv->web_view));
+    gtk_style_context_get (stylecontext, gtk_widget_get_state_flags (GTK_WIDGET(priv->web_view)),
+                           "font", &font_desc, NULL);
 
-    /* Get the default font family from GtkStyle of a GtkWidget(priv-web_view). */
-    default_font_family = pango_font_description_get_family( gtk_rc_get_style(GTK_WIDGET(priv->web_view))->font_desc );
+    default_font_family = pango_font_description_get_family (font_desc);
+    pango_font_description_free (font_desc);
 
     /* Set default webkit settings */
     webkit_settings = webkit_web_view_get_settings (priv->web_view);
@@ -189,6 +201,13 @@ gnc_html_webkit_init( GncHtmlWebkit* self )
                       G_CALLBACK(gnc_html_submit_cb),
                       self);
 #endif
+    g_signal_connect (priv->web_view, "load-error",
+                      G_CALLBACK (webkit_on_load_error),
+                      self);
+
+    g_signal_connect (priv->web_view, "resource-load-failed",
+                      G_CALLBACK (webkit_resource_load_error),
+                      self);
 
     gnc_prefs_register_cb (GNC_PREFS_GROUP_GENERAL_REPORT,
             GNC_PREF_RPT_DFLT_ZOOM,
@@ -524,7 +543,7 @@ load_to_stream( GncHtmlWebkit* self, URLType type,
             {
                 if ( !https_allowed() )
                 {
-                    gnc_error_dialog( priv->base.parent, "%s",
+                    gnc_error_dialog (GTK_WINDOW (priv->base.parent), "%s",
                                       _("Secure HTTP access is disabled. "
                                         "You can enable it in the Network section of "
                                         "the Preferences dialog."));
@@ -534,7 +553,7 @@ load_to_stream( GncHtmlWebkit* self, URLType type,
 
             if ( !http_allowed() )
             {
-                gnc_error_dialog( priv->base.parent, "%s",
+                gnc_error_dialog (GTK_WINDOW (priv->base.parent), "%s",
                                   _("Network HTTP access is disabled. "
                                     "You can enable it in the Network section of "
                                     "the Preferences dialog."));
@@ -619,6 +638,25 @@ webkit_navigation_requested_cb( WebKitWebView* web_view, WebKitWebFrame* frame,
 
     LEAVE("");
     return WEBKIT_NAVIGATION_RESPONSE_IGNORE;
+}
+
+static gboolean
+webkit_on_load_error (WebKitWebView *web_view, WebKitWebFrame *web_frame,
+                      gchar *uri, GError *error, gpointer data)
+{
+     PERR ("WebKit load of %s failed due to %s\n", uri, error->message);
+     return FALSE;
+}
+
+static void
+webkit_resource_load_error (WebKitWebView *web_view, WebKitWebFrame *web_frame,
+                            WebKitWebResource *resource, GError *error,
+                            gpointer data)
+{
+     const gchar *uri = webkit_web_resource_get_uri (resource);
+     const gchar *type = webkit_web_resource_get_mime_type (resource);
+     PERR ("WebKit load of resource %s, type %s, failed due to %s\n",
+              uri, type, error->message);
 }
 
 #if 0
@@ -764,7 +802,11 @@ impl_webkit_show_data( GncHtml* self, const gchar* data, int datalen )
     fd = g_mkstemp( filename );
     impl_webkit_export_to_file( self, filename );
     close( fd );
+#ifdef G_OS_WIN32
     uri = g_strdup_printf( "file:///%s", filename );
+#else
+    uri = g_strdup_printf( "file://%s", filename );
+#endif
     g_free(filename);
     DEBUG("Loading uri '%s'", uri);
     webkit_web_view_load_uri( priv->web_view, uri );
@@ -839,18 +881,19 @@ impl_webkit_show_url( GncHtml* self, URLType type,
         result.base_type = URL_TYPE_FILE;
         result.base_location = NULL;
         result.error_message = NULL;
+        result.parent = GTK_WINDOW (priv->base.parent);
 
         ok = url_handler( location, label, new_window, &result );
         if ( !ok )
         {
             if ( result.error_message )
             {
-                gnc_error_dialog( priv->base.parent, "%s", result.error_message );
+                gnc_error_dialog (GTK_WINDOW (priv->base.parent), "%s", result.error_message );
             }
             else
             {
                 /* %s is a URL (some location somewhere). */
-                gnc_error_dialog( priv->base.parent, _("There was an error accessing %s."), location );
+                gnc_error_dialog (GTK_WINDOW (priv->base.parent), _("There was an error accessing %s."), location );
             }
 
             if ( priv->base.load_cb )
@@ -916,7 +959,7 @@ impl_webkit_show_url( GncHtml* self, URLType type,
             {
                 if ( !https_allowed() )
                 {
-                    gnc_error_dialog( priv->base.parent, "%s",
+                    gnc_error_dialog (GTK_WINDOW (priv->base.parent), "%s",
                                       _("Secure HTTP access is disabled. "
                                         "You can enable it in the Network section of "
                                         "the Preferences dialog.") );
@@ -928,7 +971,7 @@ impl_webkit_show_url( GncHtml* self, URLType type,
             {
                 if ( !http_allowed() )
                 {
-                    gnc_error_dialog( priv->base.parent, "%s",
+                    gnc_error_dialog (GTK_WINDOW (priv->base.parent), "%s",
                                       _("Network HTTP access is disabled. "
                                         "You can enable it in the Network section of "
                                         "the Preferences dialog.") );
@@ -1151,8 +1194,8 @@ impl_webkit_print( GncHtml* self, const gchar* jobname, gboolean export_pdf )
         dialog = gtk_file_chooser_dialog_new (_("Export to PDF File"),
                                               NULL,
                                               GTK_FILE_CHOOSER_ACTION_SAVE,
-                                              GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-                                              GTK_STOCK_SAVE, GTK_RESPONSE_ACCEPT,
+                                              _("_Cancel"), GTK_RESPONSE_CANCEL,
+                                              _("_Save"), GTK_RESPONSE_ACCEPT,
                                               NULL);
         gtk_file_chooser_set_do_overwrite_confirmation (GTK_FILE_CHOOSER (dialog), TRUE);
 

@@ -656,7 +656,7 @@ gboolean gncOwnerGetOwnerFromTxn (Transaction *txn, GncOwner *owner)
     if (xaccTransGetTxnType (txn) == TXN_TYPE_NONE)
         return FALSE;
 
-    apar_split = xaccTransGetFirstAPARAcctSplit (txn);
+    apar_split = xaccTransGetFirstAPARAcctSplit (txn, TRUE);
     if (apar_split)
     {
         GNCLot *lot = xaccSplitGetLot (apar_split);
@@ -751,6 +751,8 @@ gncOwnerCreatePaymentLot (const GncOwner *owner, Transaction **preset_txn,
 
     if (txn)
     {
+        xaccTransSetDescription (txn, name ? name : "");
+
         /* Pre-existing transaction was specified. We completely clear it,
          * except for the split in the transfer account, unless the
          * transaction can't be reused (wrong currency, wrong transfer account).

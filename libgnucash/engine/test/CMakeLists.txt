@@ -15,8 +15,6 @@ MACRO(ADD_ENGINE_TEST _TARGET _SOURCE_FILES)
   GNC_ADD_TEST(${_TARGET} "${_SOURCE_FILES}" ENGINE_TEST_INCLUDE_DIRS ENGINE_TEST_LIBS)
 ENDMACRO()
 
-CONFIGURE_FILE(test-scm-query-import.in test-scm-query-import @ONLY)
-CONFIGURE_FILE(test-create-account.in test-create-account @ONLY)
 # Not via macro because of unique link requirements
 
 ADD_EXECUTABLE(test-link EXCLUDE_FROM_ALL test-link.c)
@@ -110,7 +108,17 @@ SET(gtest_engine_INCLUDES
   ${CMAKE_BINARY_DIR}/common # for config.h
   ${CMAKE_SOURCE_DIR}/common # for platform.h
   ${GLIB2_INCLUDE_DIRS}
-  ${GTEST_INCLUDE_DIR})
+  ${GTEST_INCLUDE_DIR}
+  ../../../borrowed/libc
+)
+
+IF (WIN32)
+  ADD_DEFINITIONS (-DOS_WIN32)
+  SET (gtest_engine_win32_SOURCES
+    ${MODULEPATH}/qof-win32.cpp
+    ../../../borrowed/libc/strptime.c
+  )
+ENDIF (WIN32)
 
 SET(test_gnc_guid_SOURCES
   ${MODULEPATH}/guid.cpp
@@ -149,8 +157,10 @@ SET(test_gnc_rational_SOURCES
   ${MODULEPATH}/gnc-timezone.cpp
   ${MODULEPATH}/gnc-date.cpp
   ${MODULEPATH}/qoflog.cpp
+  ${gtest_engine_win32_SOURCES}
   gtest-gnc-rational.cpp
   ${GTEST_SRC})
+
 GNC_ADD_TEST(test-gnc-rational "${test_gnc_rational_SOURCES}"
   gtest_engine_INCLUDES gtest_qof_LIBS)
 
@@ -162,6 +172,7 @@ SET(test_gnc_numeric_SOURCES
   ${MODULEPATH}/gnc-timezone.cpp
   ${MODULEPATH}/gnc-date.cpp
   ${MODULEPATH}/qoflog.cpp
+  ${gtest_engine_win32_SOURCES}
   gtest-gnc-numeric.cpp
   ${GTEST_SRC})
 GNC_ADD_TEST(test-gnc-numeric "${test_gnc_numeric_SOURCES}"
@@ -179,6 +190,7 @@ SET(test_gnc_datetime_SOURCES
   ${MODULEPATH}/gnc-timezone.cpp
   ${MODULEPATH}/gnc-date.cpp
   ${MODULEPATH}/qoflog.cpp
+  ${gtest_engine_win32_SOURCES}
   gtest-gnc-datetime.cpp
   ${GTEST_SRC})
 GNC_ADD_TEST(test-gnc-datetime "${test_gnc_datetime_SOURCES}"
@@ -196,29 +208,34 @@ GNC_ADD_TEST(test-import-map "${test_import_map_SOURCES}"
 GNC_ADD_TEST_WITH_GUILE(test-scm-query test-scm-query.cpp ENGINE_TEST_INCLUDE_DIRS ENGINE_TEST_LIBS)
 ############################
 
-GNC_ADD_SCHEME_TEST(scm-test-account test-account.scm)
-GNC_ADD_SCHEME_TEST(scm-test-create-account test-create-account.scm)
-GNC_ADD_SCHEME_TEST(scm-test-test-extra test-test-extras.scm)
-GNC_ADD_SCHEME_TEST(scm-test-split test-split.scm)
-# This check not run in autotools. Doesn't pass.
-#GNC_ADD_SCHEME_TEST(scm-test-scm-query-import test-scm-query-import.scm)
 
-SET(engine_test_SCHEME test-extras.scm)
+SET(engine_test_SCHEME
+  test-account.scm
+  test-create-account.scm
+  test-test-extras.scm
+  test-split.scm
+  test-test-extras.scm
+  )
 
-SET(GUILE_MODULES      "")
-SET(GUILE_LOAD_DIRS    libgnucash/app-utils libgnucash/scm)
-SET(GUILE_LIBRARY_DIRS "")
+#LIST(APPEND engine_test_SCHEME  test-scm-query-import.scm) Fails
+
 SET(GUILE_DEPENDS      scm-app-utils scm-scm)
+
+GNC_ADD_SCHEME_TARGETS(scm-test-engine-extras
+  "test-extras.scm"
+  "gnucash/engine/test/"
+  "${GUILE_DEPENDS}"
+  FALSE
+  )
 
 GNC_ADD_SCHEME_TARGETS(scm-test-engine
   "${engine_test_SCHEME}"
-  gnucash/engine/test
-  "${GUILE_MODULES}"
-  "${GUILE_LOAD_DIRS}"
-  "${GUILE_LIBRARY_DIRS}"
-  "${GUILE_DEPENDS}"
+  ""
+  "${GUILE_DEPENDS};scm-test-engine-extras"
   FALSE
-)
+  )
+
+GNC_ADD_SCHEME_TESTS("${engine_test_SCHEME}")
 
 SET(test_engine_SOURCES_DIST
         dummy.cpp
@@ -284,8 +301,6 @@ SET(test_engine_SCHEME_DIST
 
 SET(test_engine_EXTRA_DIST
         README
-        test-create-account.in
-        test-scm-query-import.in
 )
 
 SET_DIST_LIST(test_engine_DIST CMakeLists.txt Makefile.am

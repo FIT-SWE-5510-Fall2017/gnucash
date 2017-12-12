@@ -28,7 +28,7 @@
  * @author Copyright (C) 2008 Andreas Koehler <andi5.py@gmx.net>
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <ctype.h>
 #include <glib/gi18n.h>
@@ -196,7 +196,7 @@ static gint progress_advance_cb(GWEN_GUI *gwen_gui, uint32_t id,
 static gint progress_log_cb(GWEN_GUI *gwen_gui, guint32 id,
                             GWEN_LOGGER_LEVEL level, const gchar *text);
 static gint progress_end_cb(GWEN_GUI *gwen_gui, guint32 id);
-#if GWENHYWFAR_VERSION_INT <= 41700
+#if GWENHYWFAR_VERSION_INT <= 49900
 static gint GNC_GWENHYWFAR_CB getpassword_cb(GWEN_GUI *gwen_gui, guint32 flags,
                                              const gchar *token,
                                              const gchar *title,
@@ -1087,7 +1087,7 @@ get_input(GncGWENGui *gui, guint32 flags, const gchar *title, const gchar *text,
             gchar *msg = g_strdup_printf(
                              _("The PIN needs to be at least %d characters \n"
                                "long. Do you want to try again?"), min_len);
-            retval = gnc_verify_dialog(gui->parent, TRUE, "%s", msg);
+            retval = gnc_verify_dialog (GTK_WINDOW (gui->parent), TRUE, "%s", msg);
             g_free(msg);
             if (!retval)
                 break;
@@ -1410,7 +1410,7 @@ progress_end_cb(GWEN_GUI *gwen_gui, guint32 id)
 }
 
 static gint GNC_GWENHYWFAR_CB
-#if GWENHYWFAR_VERSION_INT <= 41700
+#if GWENHYWFAR_VERSION_INT <= 49900
 getpassword_cb(GWEN_GUI *gwen_gui, guint32 flags, const gchar *token,
                const gchar *title, const gchar *text, gchar *buffer,
                gint min_len, gint max_len, guint32 guiid)
@@ -1589,7 +1589,7 @@ ggg_delete_event_cb(GtkWidget *widget, GdkEvent *event, gpointer user_data)
         const char *still_running_msg =
             _("The Online Banking job is still running; are you "
               "sure you want to cancel?");
-        if (!gnc_verify_dialog(gui->dialog, FALSE, "%s", still_running_msg))
+        if (!gnc_verify_dialog (GTK_WINDOW (gui->dialog), FALSE, "%s", still_running_msg))
             return FALSE;
 
         set_aborted(gui);

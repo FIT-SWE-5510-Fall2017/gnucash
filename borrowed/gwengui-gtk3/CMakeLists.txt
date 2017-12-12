@@ -1,4 +1,5 @@
 SET (gwengui_gtk3_noinst_HEADERS
+  gtk3_gui.h
   gtk3_gui_p.h
   gtk3_gui_dialog_l.h
   gtk3_gui_dialog_p.h
@@ -15,6 +16,7 @@ SET (gwengui_gtk3_EXTRA_DIST
   w_dialog.c
   w_gridlayout.c
   w_groupbox.c
+  w_image.c
   w_hlayout.c
   w_hline.c
   w_hspacer.c
@@ -51,6 +53,7 @@ TARGET_INCLUDE_DIRECTORIES(gwengui-gtk3 PUBLIC
 TARGET_LINK_LIBRARIES(gwengui-gtk3 ${GWENHYWFAR_LDFLAGS} ${GTK3_LDFLAGS})
 
 INSTALL(TARGETS gwengui-gtk3
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   )

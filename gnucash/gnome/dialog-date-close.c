@@ -21,7 +21,7 @@
  * Boston, MA  02110-1301,  USA       gnu@gnu.org
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <glib/gi18n.h>
 
@@ -71,14 +71,14 @@ gnc_dialog_date_close_ok_cb (GtkWidget *widget, gpointer user_data)
 
         if (!acc)
         {
-            gnc_error_dialog (ddc->dialog, "%s",
+            gnc_error_dialog (GTK_WINDOW (ddc->dialog), "%s",
                               _("No Account selected. Please try again."));
             return;
         }
 
         if (xaccAccountGetPlaceholder (acc))
         {
-            gnc_error_dialog (ddc->dialog, "%s",
+            gnc_error_dialog (GTK_WINDOW (ddc->dialog), "%s",
                               _("Placeholder account selected. Please try again."));
             return;
         }
