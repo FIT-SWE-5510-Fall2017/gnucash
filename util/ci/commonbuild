@@ -1,5 +1,5 @@
 #!/bin/bash -e
-export SONAR_SCANNER_HOME=$HOME/.sonar/sonar-scanner-2.8
+export SONAR_SCANNER_HOME=$HOME/.sonar/sonar-scanner-3.0.3.778-linux
 export PATH=$SONAR_SCANNER_HOME/bin:$PATH
 export SONAR_BUILD_WRAPPER=$HOME/.sonar/build-wrapper-linux-x86
 export PATH=$SONAR_BUILD_WRAPPER:$PATH
