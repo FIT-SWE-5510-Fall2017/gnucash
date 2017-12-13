@@ -7,27 +7,19 @@ cd build
 export TZ="America/Los_Angeles"
 
 if [[ "$BUILDTYPE" == "cmake-make" ]]; then
-    echo Travis OS is $TRAVIS_OS_NAME
-    echo Travis PR is $TRAVIS_PULL_REQUEST
 	cmake ../gnucash
-	if [[ "$TRAVIS_OS_NAME" == "linux" ]] && [[ "${TRAVIS_PULL_REQUEST}" == "false" ]]; then
-		echo "Running SonarQube..."
-		../sonarqube
-		build-wrapper-linux-x86-64 --out-dir bw-outputs make -j 4 VERBOSE=1;
-		sonar-scanner \
-			-Dsonar.projectKey=gnucash-fit:gnucash-fit \
-			-Dsonar.sources=../ \
-			-Dsonar.cfamily.build-wrapper-output=bw-output \
-			-Dsonar.host.url=https://sonarcloud.io \
-			-Dsonar.organization=fit-swe \
-			-Dsonar.links.homepage=https://www.gnucash.org/ \
-			-Dsonar.links.issue=https://bugzilla.gnome.org/page.cgi?id=browse.html&product=GnuCash \
-			-Dsonar.links.scm=https://github.com/FIT-SWE-5510-Fall2017/gnucash.git \
-			-Dsonar.login=$SONARQUBE_API_TOKEN
-	else
-		echo "Running a regular build without SonarQube..."
-		make -j 4
-	fi	
+	../sonarqube
+	build-wrapper-linux-x86-64 --out-dir bw-outputs make -j 4 VERBOSE=1;
+	sonar-scanner \
+		-Dsonar.projectKey=gnucash-fit:gnucash-fit \
+		-Dsonar.sources=../ \
+		-Dsonar.cfamily.build-wrapper-output=bw-output \
+		-Dsonar.host.url=https://sonarcloud.io \
+		-Dsonar.organization=fit-swe \
+		-Dsonar.links.homepage=https://www.gnucash.org/ \
+		-Dsonar.links.issue=https://bugzilla.gnome.org/page.cgi?id=browse.html&product=GnuCash \
+		-Dsonar.links.scm=https://github.com/FIT-SWE-5510-Fall2017/gnucash.git \
+		-Dsonar.login=$SONARQUBE_API_TOKEN
 	make check || ../afterfailure
 elif [[ "$BUILDTYPE" == "cmake-ninja" ]]; then
     cmake ../gnucash -DWITH_PYTHON=ON -DCMAKE_BUILD_TYPE=debug -G Ninja
