@@ -7,6 +7,8 @@ cd build
 export TZ="America/Los_Angeles"
 
 if [[ "$BUILDTYPE" == "cmake-make" ]]; then
+    echo Travis OS is $TRAVIS_OS_NAME
+    echo Travis PR is $TRAVIS_PULL_REQUEST
 	cmake ../gnucash
 	if [[ "$TRAVIS_OS_NAME" == "linux" ]] && [[ "${TRAVIS_PULL_REQUEST}" == "false" ]]; then
 		echo "Running SonarQube..."
