@@ -6,7 +6,7 @@
 export SONAR_SCANNER_HOME=$HOME/.sonar/sonar-scanner-2.8
 rm -rf $SONAR_SCANNER_HOME
 mkdir -p $SONAR_SCANNER_HOME
-curl -Lo $HOME/.sonar/sonar-scanner.zip http://repo1.maven.org/maven2/org/sonarsource/scanner/cli/sonar-scanner-cli/2.8/sonar-scanner-cli-2.8.zip
+curl -sSLo $HOME/.sonar/sonar-scanner.zip http://repo1.maven.org/maven2/org/sonarsource/scanner/cli/sonar-scanner-cli/2.8/sonar-scanner-cli-2.8.zip
 unzip $HOME/.sonar/sonar-scanner.zip -d $HOME/.sonar/
 rm $HOME/.sonar/sonar-scanner.zip
 export PATH=$SONAR_SCANNER_HOME/bin:$PATH
@@ -16,7 +16,7 @@ export SONAR_SCANNER_OPTS="-server"
 export SONAR_BUILD_WRAPPER=$HOME/.sonar/build-wrapper-linux-x86
 rm -rf $SONAR_BUILD_WRAPPER
 mkdir -p $SONAR_BUILD_WRAPPER
-curl -Lo $HOME/.sonar/build-wrapper-linux-x86.zip https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
+curl -sSLo $HOME/.sonar/build-wrapper-linux-x86.zip https://sonarcloud.io/static/cpp/build-wrapper-linux-x86.zip
 unzip $HOME/.sonar/build-wrapper-linux-x86.zip -d $HOME/.sonar/
 rm $HOME/.sonar/build-wrapper-linux-x86.zip
 export PATH=$SONAR_BUILD_WRAPPER:$PATH

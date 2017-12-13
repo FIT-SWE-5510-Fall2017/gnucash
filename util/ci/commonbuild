@@ -1,4 +1,8 @@
 #!/bin/bash -e
+export SONAR_SCANNER_HOME=$HOME/.sonar/sonar-scanner-2.8
+export PATH=$SONAR_SCANNER_HOME/bin:$PATH
+export SONAR_BUILD_WRAPPER=$HOME/.sonar/build-wrapper-linux-x86
+export PATH=$SONAR_BUILD_WRAPPER:$PATH
 
 mkdir -p "$HOME"/.local/share
 
@@ -7,6 +11,7 @@ cd build
 export TZ="America/Los_Angeles"
 
 if [[ "$BUILDTYPE" == "cmake-make" ]]; then
+	echo Path is $PATH
 	cmake ../gnucash
 	../sonarqube
 	build-wrapper-linux-x86-64 --out-dir bw-outputs make -j 4 VERBOSE=1;
