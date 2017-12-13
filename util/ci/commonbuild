@@ -9,6 +9,7 @@ export TZ="America/Los_Angeles"
 if [[ "$BUILDTYPE" == "cmake-make" ]]; then
 	cmake ../gnucash
 	if [[ "$TRAVIS_OS_NAME" == "linux" ]] && [[ "${TRAVIS_PULL_REQUEST}" == "false" ]]; then
+		echo "Running SonarQube..."
 		../sonarqube
 		build-wrapper-linux-x86-64 --out-dir bw-outputs make -j 4 VERBOSE=1;
 		sonar-scanner \
@@ -21,7 +22,8 @@ if [[ "$BUILDTYPE" == "cmake-make" ]]; then
 			-Dsonar.links.issue=https://bugzilla.gnome.org/page.cgi?id=browse.html&product=GnuCash \
 			-Dsonar.links.scm=https://github.com/FIT-SWE-5510-Fall2017/gnucash.git \
 			-Dsonar.login=$SONARQUBE_API_TOKEN
-	else 
+	else
+		echo "Running a regular build without SonarQube..."
 		make -j 4
 	fi	
 	make check || ../afterfailure
