@@ -15,16 +15,7 @@ if [[ "$BUILDTYPE" == "cmake-make" ]]; then
 	cmake ../gnucash
 	../sonarqube
 	build-wrapper-linux-x86-64 --out-dir bw-outputs make -j 4 VERBOSE=1;
-	sonar-scanner \
-		-Dsonar.projectKey=gnucash-fit:gnucash-fit \
-		-Dsonar.sources=../ \
-		-Dsonar.cfamily.build-wrapper-output=bw-output \
-		-Dsonar.host.url=https://sonarcloud.io \
-		-Dsonar.organization=fit-swe \
-		-Dsonar.links.homepage=https://www.gnucash.org/ \
-		-Dsonar.links.issue=https://bugzilla.gnome.org/page.cgi?id=browse.html&product=GnuCash \
-		-Dsonar.links.scm=https://github.com/FIT-SWE-5510-Fall2017/gnucash.git \
-		-Dsonar.login=$SONARQUBE_API_TOKEN
+	sonar-scanner -Dsonar.projectKey=gnucash-fit:gnucash-fit -Dsonar.sources=../ -Dsonar.cfamily.build-wrapper-output=bw-output -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=fit-swe -Dsonar.login=$SONARQUBE_API_TOKEN
 	make check || ../afterfailure
 elif [[ "$BUILDTYPE" == "cmake-ninja" ]]; then
     cmake ../gnucash -DWITH_PYTHON=ON -DCMAKE_BUILD_TYPE=debug -G Ninja
